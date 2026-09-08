@@ -1,0 +1,33 @@
+# Qt Creator and CMake build products
+/build*/
+/out/
+/.qt/
+/.tools/
+CMakeUserPresets.json
+
+# IDE files
+/.vs/
+/.vscode/
+*.user
+*.suo
+
+# Compiled binaries and generated captures
+*.dll
+*.exe
+*.pdb
+*.ilk
+*.dylib
+*.so
+
+# Local plugin installations
+/plugins-local/
+
+# Generated reports, temporary scripts, and local installer logs
+/output/
+/outputs/
+/tmp/
+aqtinstall.log
+
+# Python runtime caches
+__pycache__/
+*.pyc

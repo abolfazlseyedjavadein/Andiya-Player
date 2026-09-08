@@ -1,0 +1,23 @@
+{
+  "id": "example.python-grayscale",
+  "name": "Python Grayscale",
+  "vendor": "Andiya Example Plugins",
+  "description": "A minimal Python image filter that converts frames to grayscale, demonstrating the out-of-process Python plugin bridge.",
+  "version": "1.0.0",
+  "andiyaApi": "1.0",
+  "execution": "python",
+  "runtime": "process",
+  "entrypoint": "filter.py",
+  "capabilities": [
+    "image-filter"
+  ],
+  "permissions": [
+    "frame-access"
+  ],
+  "performance": {
+    "realtime": false,
+    "gpu": false
+  },
+  "accent": "#43D19E",
+  "enabled": false
+}

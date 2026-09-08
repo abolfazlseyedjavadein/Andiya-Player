@@ -1,0 +1,42 @@
+{
+  "id": "example.soft-contrast",
+  "name": "Soft Contrast",
+  "vendor": "Andiya Example Plugins",
+  "description": "A warm, subtle contrast filter running locally through the public C ABI.",
+  "version": "1.0.0",
+  "andiyaApi": "1.0",
+  "execution": "native",
+  "runtime": "c-abi",
+  "entrypoint": "@CMAKE_SHARED_LIBRARY_PREFIX@soft_contrast@CMAKE_SHARED_LIBRARY_SUFFIX@",
+  "capabilities": [
+    "image-filter",
+    "video-filter"
+  ],
+  "permissions": [
+    "frame-access"
+  ],
+  "performance": {
+    "realtime": true,
+    "gpu": false
+  },
+  "accent": "#5CD6FF",
+  "enabled": true,
+  "parameters": [
+    {
+      "key": "contrast",
+      "label": "Contrast",
+      "min": 0.5,
+      "max": 2.0,
+      "default": 1.08,
+      "step": 0.01
+    },
+    {
+      "key": "warmth",
+      "label": "Warmth",
+      "min": 0,
+      "max": 3,
+      "default": 1,
+      "step": 0.1
+    }
+  ]
+}

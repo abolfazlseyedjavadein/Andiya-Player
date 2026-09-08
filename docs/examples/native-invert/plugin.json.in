@@ -1,0 +1,24 @@
+{
+  "id": "example.native-invert",
+  "name": "Native Invert",
+  "vendor": "Andiya Example Plugins",
+  "description": "Invert RGB while preserving alpha through the public C ABI.",
+  "version": "1.0.0",
+  "andiyaApi": "1.0",
+  "execution": "native",
+  "runtime": "c-abi",
+  "entrypoint": "@CMAKE_SHARED_LIBRARY_PREFIX@invert@CMAKE_SHARED_LIBRARY_SUFFIX@",
+  "capabilities": [
+    "image-filter",
+    "video-filter"
+  ],
+  "permissions": [
+    "frame-access"
+  ],
+  "performance": {
+    "realtime": true,
+    "gpu": false
+  },
+  "accent": "#43D19E",
+  "enabled": false
+}

@@ -1,0 +1,10 @@
+[Desktop Entry]
+Type=Application
+Name=Andiya
+Comment=Play media, review frames, and apply image filters
+Exec=/opt/andiya/bin/Andiya %U
+Icon=io.andiya.player
+Terminal=false
+Categories=AudioVideo;Player;
+StartupWMClass=Andiya
+MimeType=video/mp4;video/x-matroska;video/webm;audio/mpeg;audio/flac;audio/ogg;image/png;image/jpeg;

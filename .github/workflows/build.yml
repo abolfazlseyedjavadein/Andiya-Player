@@ -1,0 +1,64 @@
+name: Build and package Andiya
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-2022
+            qt_arch: win64_msvc2022_64
+          - os: ubuntu-22.04
+            qt_arch: gcc_64
+          - os: macos-14
+            qt_arch: clang_64
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Qt
+        uses: jurplel/install-qt-action@v4
+        with:
+          version: 6.8.3
+          host: ${{ runner.os == 'Windows' && 'windows' || runner.os == 'macOS' && 'mac' || 'linux' }}
+          arch: ${{ matrix.qt_arch }}
+          target: desktop
+          modules: qtmultimedia
+          cache: true
+      - name: Install Linux build tools
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y ninja-build dpkg-dev
+      - name: Configure
+        shell: bash
+        run: cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release -DCMAKE_PREFIX_PATH="$QT_ROOT_DIR" -DANDIYA_DEPLOY_RUNTIME=ON
+      - name: Build
+        run: cmake --build build --parallel
+      - name: Install and test
+        shell: bash
+        run: |
+          if [ "$RUNNER_OS" = "Linux" ]; then
+            cmake --install build --prefix "$PWD/stage/opt/andiya"
+            mkdir -p stage/usr/share/applications stage/usr/share/icons/hicolor/256x256/apps
+            cp packaging/linux/io.andiya.player.desktop stage/usr/share/applications/
+            cp assets/andiya-256.png stage/usr/share/icons/hicolor/256x256/apps/io.andiya.player.png
+          else
+            cmake --install build --prefix "$PWD/stage"
+          fi
+          python3 -B tools/verify_install.py stage --output verification
+      - name: Package
+        shell: bash
+        run: cpack --config build/CPackConfig.cmake -C Release
+      - name: Upload package
+        uses: actions/upload-artifact@v4
+        with:
+          name: Andiya-${{ runner.os }}
+          path: build/packages/*
+          if-no-files-found: error
