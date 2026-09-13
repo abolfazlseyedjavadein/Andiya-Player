@@ -189,6 +189,10 @@ PlayerController::~PlayerController()
 {
     saveResumePosition();
     m_player->setAudioBufferOutput(nullptr);
+    // The buffer output destructor can call back into its media player.
+    // Destroy it now, before QObject deletes the player child.
+    delete m_audioBufferOutput;
+    m_audioBufferOutput = nullptr;
     if (m_audioSink) {
         m_audioSink->stop();
     }
