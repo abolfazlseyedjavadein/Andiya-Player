@@ -61,6 +61,11 @@ def main():
             results_file = output / "results.txt"
             if results_file.is_file():
                 print(results_file.read_text(encoding="utf-8", errors="replace")[-6000:], file=sys.stderr)
+            if os.environ.get("GITHUB_ACTIONS") == "true":
+                detail = "Verification exit code " + str(result.returncode) + ": " + log.read_text(encoding="utf-8", errors="replace")[-4000:]
+                if results_file.is_file():
+                    detail += results_file.read_text(encoding="utf-8", errors="replace")[-4000:]
+                print("::error::" + detail.replace("%", "%25").replace("\r", "%0D").replace("\n", "%0A"), flush=True)
             raise RuntimeError("Installed verification failed; inspect " + str(log))
     results = (output / "results.txt").read_text()
     if "ALL TESTS PASSED" not in results:

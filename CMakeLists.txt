@@ -6,6 +6,11 @@ set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
+# Keep Linux executables separate from the generated Andiya QML module directory.
+if(UNIX AND NOT APPLE)
+    set(CMAKE_RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin")
+endif()
+
 find_package(Qt6 6.8 REQUIRED COMPONENTS
     Quick
     QuickControls2
