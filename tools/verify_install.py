@@ -56,7 +56,11 @@ def main():
                                     stderr=subprocess.STDOUT, timeout=180)
         if result.returncode:
             print("--- Failed verification output: " + str(log) + " ---", file=sys.stderr)
+            print("Exit code:", result.returncode, file=sys.stderr)
             print(log.read_text(encoding="utf-8", errors="replace")[-6000:], file=sys.stderr)
+            results_file = output / "results.txt"
+            if results_file.is_file():
+                print(results_file.read_text(encoding="utf-8", errors="replace")[-6000:], file=sys.stderr)
             raise RuntimeError("Installed verification failed; inspect " + str(log))
     results = (output / "results.txt").read_text()
     if "ALL TESTS PASSED" not in results:

@@ -50,8 +50,7 @@ jobs:
           result=${PIPESTATUS[0]}
           set -e
           if [ "$result" -ne 0 ]; then
-            grep -Ei 'error:|fatal error|error C[0-9]+|CMake Error|Setup failed|RuntimeError|FAIL' \
-              "$RUNNER_TEMP/andiya-setup.log" | tail -n 12 |
+            tail -n 25 "$RUNNER_TEMP/andiya-setup.log" |
               while IFS= read -r line; do echo "::error::$line"; done
             exit "$result"
           fi
