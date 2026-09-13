@@ -32,7 +32,7 @@ static QVariantMap defaultKeys() {
 StudioController::StudioController(PlayerController *player,PluginListModel *plugins,QObject *parent)
     :QObject(parent),m_player(player),m_plugins(plugins),m_network(new QNetworkAccessManager(this)) {}
 QUrl StudioController::publicUrl(QUrl url) {
-    if(!url.isLocalFile()){url.setUserInfo({});url.setQuery({});url.setFragment({});}
+    if(!url.isLocalFile()){url.setUserInfo(QString{});url.setQuery(QString{});url.setFragment(QString{});}
     return url;
 }
 void StudioController::report(QString text){m_status=std::move(text);emit statusChanged();}
