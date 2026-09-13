@@ -845,14 +845,14 @@ void PlayerController::clear()
     ++m_generation;m_stepFreeze=false;m_stepDirection=0;m_currentFrame={};clearLoop();
     m_player->stop();
     m_player->setSource(QUrl{});
-    m_source = {};
-    m_imageSource = {};
+    m_source = QUrl{};
+    m_imageSource = QUrl{};
     m_originalImage = {};
     if (m_compareModeActive) {
         m_compareModeActive = false;
         m_compareOriginalImage = {};
-        m_compareOriginalSource = {};
-        m_compareFilteredSource = {};
+        m_compareOriginalSource = QUrl{};
+        m_compareFilteredSource = QUrl{};
         emit compareModeChanged();
     }
     clearSubtitles();
