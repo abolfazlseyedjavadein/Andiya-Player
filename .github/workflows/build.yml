@@ -18,7 +18,7 @@ jobs:
           - os: windows-2022
             qt_arch: win64_msvc2022_64
           - os: ubuntu-22.04
-            qt_arch: gcc_64
+            qt_arch: linux_gcc_64
           - os: macos-14
             qt_arch: clang_64
     runs-on: ${{ matrix.os }}
@@ -36,29 +36,35 @@ jobs:
       - name: Install Linux build tools
         if: runner.os == 'Linux'
         run: sudo apt-get update && sudo apt-get install -y ninja-build dpkg-dev
-      - name: Configure
-        shell: bash
-        run: cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release -DCMAKE_PREFIX_PATH="$QT_ROOT_DIR" -DANDIYA_DEPLOY_RUNTIME=ON
-      - name: Build
-        run: cmake --build build --parallel
-      - name: Install and test
+      - name: Build, verify, and package
         shell: bash
         run: |
-          if [ "$RUNNER_OS" = "Linux" ]; then
-            cmake --install build --prefix "$PWD/stage/opt/andiya"
-            mkdir -p stage/usr/share/applications stage/usr/share/icons/hicolor/256x256/apps
-            cp packaging/linux/io.andiya.player.desktop stage/usr/share/applications/
-            cp assets/andiya-256.png stage/usr/share/icons/hicolor/256x256/apps/io.andiya.player.png
-          else
-            cmake --install build --prefix "$PWD/stage"
+          options=()
+          if [ "$RUNNER_OS" = "Windows" ]; then
+            options+=(--archive-only)
           fi
-          python3 -B tools/verify_install.py stage --output verification
-      - name: Package
-        shell: bash
-        run: cpack --config build/CPackConfig.cmake -C Release
+          set +e
+          python -B tools/setup.py --qt-prefix "$QT_ROOT_DIR" \
+            --build-dir "$RUNNER_TEMP/andiya-build" --package "${options[@]}" \
+            2>&1 | tee "$RUNNER_TEMP/andiya-setup.log"
+          result=${PIPESTATUS[0]}
+          set -e
+          if [ "$result" -ne 0 ]; then
+            grep -Ei 'error:|fatal error|error C[0-9]+|CMake Error|Setup failed|RuntimeError' \
+              "$RUNNER_TEMP/andiya-setup.log" | tail -n 12 |
+              while IFS= read -r line; do echo "::error::$line"; done
+            exit "$result"
+          fi
+      - name: Upload verification
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: Andiya-verification-${{ runner.os }}
+          path: ${{ runner.temp }}/andiya-build/verification/
+          if-no-files-found: ignore
       - name: Upload package
         uses: actions/upload-artifact@v4
         with:
           name: Andiya-${{ runner.os }}
-          path: build/packages/*
+          path: ${{ runner.temp }}/andiya-build/packages/*
           if-no-files-found: error

@@ -91,14 +91,14 @@ documentation captured when they were built and need rebuilding to include it.
 
 ## CI status
 
-`.github/workflows/build.yml` contains a Windows/macOS/Linux matrix and artifact
-uploads, but it is a build scaffold, not evidence of successful published
-releases. It currently uses a direct Ninja/install/CPack path instead of the
-setup helper. It does not initialize the Windows compiler environment, copy the
-offscreen test plugin, or reproduce setup's macOS signing and packaging of the
-verified stage. It also writes generated directories inside its CI checkout.
-Windows CPack output alone is a ZIP; NSIS creation belongs to the setup helper.
+The GitHub Actions matrix runs the same setup helper used for local release
+verification on Windows, macOS and Linux. It builds into the runner's temporary
+directory, tests the installed runtime, packages the verified stage and uploads
+both packages and verification output as workflow artifacts. The Windows CI job
+creates the portable ZIP; the NSIS installer in the published Windows release is
+built and verified separately. CI does not publish a GitHub release automatically.
 
-Align that workflow with the helper and obtain successful native-platform runs
-before using its artifacts as release evidence. It does not publish a GitHub
-release automatically.
+A platform should be described as CI-verified only after its matrix job succeeds.
+A successful CI package is still not a substitute for an installation test on a
+clean target system. macOS Developer ID signing and notarization require the
+maintainer's credentials; CI uses only the helper's ad-hoc signature.
