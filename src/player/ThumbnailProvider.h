@@ -48,5 +48,6 @@ private:
     QQueue<QUrl> m_queue;
     QSet<QString> m_seen;
     QUrl m_activeUrl;
+    bool m_startQueued = false;
     bool m_frameCaptured = false;
 };

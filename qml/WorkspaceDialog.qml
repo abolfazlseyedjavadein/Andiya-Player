@@ -93,7 +93,7 @@ Dialog {
                     }
                     Label { text: "Image batches use the enabled filters. Completed files are kept when you cancel."; Layout.fillWidth: true; wrapMode: Text.WordWrap; color: Theme.textSecondary }
                     ProgressBar { Layout.fillWidth: true; value: player.batchProgress }
-                    Label { text: player.batchStatus || "Ready to export"; Layout.fillWidth: true; wrapMode: Text.WordWrap }
+                    Label { text: player.batchStatus || "Choose an export to begin"; Layout.fillWidth: true; wrapMode: Text.WordWrap }
                     RowLayout {
                         Button { text: "Cancel export"; enabled: player.batchRunning; onClicked: player.cancelBatch() }
                         Button { text: "Output folder…"; onClicked: exportFolder.open() }
@@ -224,6 +224,29 @@ Dialog {
                 ColumnLayout {
                     visible: tabs.currentIndex === 5
                     Layout.fillWidth: true
+                    Label { text: "Appearance"; font.bold: true }
+                    RowLayout {
+                        Layout.fillWidth: true
+                        Label { text: "Theme"; Layout.preferredWidth: 180 }
+                        ComboBox {
+                            id: workspaceThemePicker
+                            objectName: "workspaceThemePicker"
+                            Layout.fillWidth: true
+                            Accessible.name: "Theme"
+                            model: ["Aurora Glass", "Midnight", "Graphite", "Ember", "Pearl",
+                                    "Daylight Blue", "Rose Bloom", "Neon Gamer", "Warm Sunset",
+                                    "Nordic Frost", "Synthwave", "Deep Jade"]
+                            currentIndex: Math.max(0, model.indexOf(Theme.styleName))
+                            onActivated: Theme.styleName = currentText
+                            Connections {
+                                target: Theme
+                                function onStyleNameChanged() {
+                                    workspaceThemePicker.currentIndex = workspaceThemePicker.model.indexOf(Theme.styleName)
+                                }
+                            }
+                        }
+                    }
+                    Label { text: "The theme changes immediately and is saved automatically."; color: Theme.textSecondary; wrapMode: Text.WordWrap; Layout.fillWidth: true }
                     Label { text: "Text size"; font.bold: true }
                     Slider { Layout.fillWidth: true; from: 0.85; to: 1.5; stepSize: 0.05; value: studio.textScale; onMoved: studio.textScale=value }
                     Label { text: Math.round(studio.textScale * 100) + "%" }
@@ -243,7 +266,7 @@ Dialog {
                 }
             }
         }
-        Label { text: root.message || studio.status; Layout.fillWidth: true; wrapMode: Text.WordWrap; color: Theme.cyan }
+        Label { text: root.message || studio.status; visible: text.length > 0; Layout.fillWidth: true; wrapMode: Text.WordWrap; color: Theme.cyan }
     }
     Connections { target: studio; function onStatusChanged(){root.message=""} }
     FileDialog { id: imageFiles; title: "Export images"; fileMode: FileDialog.OpenFiles; nameFilters: ["Images (*.png *.jpg *.jpeg *.webp *.bmp *.tif *.tiff)"]; onAccepted: player.exportImages(selectedFiles) }

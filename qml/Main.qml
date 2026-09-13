@@ -190,7 +190,7 @@ ApplicationWindow {
                         anchors.right: parent.right
                         anchors.verticalCenter: parent.verticalCenter
                         text: player.hasMedia ? "Filename:  " + player.title
-                                              : "Library ready - open video, audio or images"
+                                              : "Open video, audio or images"
                         color: Theme.textSecondary
                         font.pixelSize: Theme.fontScale * 10
                         elide: Text.ElideMiddle
@@ -646,7 +646,7 @@ ApplicationWindow {
         onAccepted: {
             const error = pluginModel.installPlugin(selectedFolder)
             error.length > 0 ? toast.show("Plugin installation failed", error)
-                             : toast.show("Plugin installed", "The plugin is ready in Andiya.")
+                             : toast.show("Plugin installed", "The plugin is installed in Andiya.")
         }
     }
 

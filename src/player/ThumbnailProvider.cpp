@@ -19,19 +19,10 @@ constexpr int kCaptureTimeoutMs = 7000;
 
 ThumbnailProvider::ThumbnailProvider(QObject *parent)
     : QObject(parent),
-      m_player(new QMediaPlayer(this)),
-      m_sink(new QVideoSink(this)),
       m_captureTimeout(new QTimer(this))
 {
-    m_player->setVideoOutput(m_sink);
     m_captureTimeout->setSingleShot(true);
     m_captureTimeout->setInterval(kCaptureTimeoutMs);
-
-    connect(m_player, &QMediaPlayer::mediaStatusChanged, this,
-            [this](QMediaPlayer::MediaStatus status) { handleMediaStatusChanged(static_cast<int>(status)); });
-    connect(m_player, &QMediaPlayer::errorOccurred, this,
-            [this](QMediaPlayer::Error, const QString &) { failActiveJob(); });
-    connect(m_sink, &QVideoSink::videoFrameChanged, this, &ThumbnailProvider::handleFrameChanged);
     connect(m_captureTimeout, &QTimer::timeout, this, &ThumbnailProvider::failActiveJob);
 }
 
@@ -63,8 +54,15 @@ void ThumbnailProvider::requestThumbnail(const QUrl &sourceUrl)
     }
     m_seen.insert(key);
     m_queue.enqueue(sourceUrl);
-    if (m_activeUrl.isEmpty()) {
-        processNext();
+    if (m_activeUrl.isEmpty() && !m_startQueued) {
+        // Let the first window frame render before loading the decoder backend.
+        m_startQueued = true;
+        QTimer::singleShot(500, this, [this] {
+            m_startQueued = false;
+            if (m_activeUrl.isEmpty()) {
+                processNext();
+            }
+        });
     }
 }
 
@@ -76,6 +74,19 @@ void ThumbnailProvider::processNext()
     }
     m_activeUrl = m_queue.dequeue();
     m_frameCaptured = false;
+    if (!m_player) {
+        m_player = new QMediaPlayer(this);
+        m_sink = new QVideoSink(this);
+        m_player->setVideoOutput(m_sink);
+        connect(m_player, &QMediaPlayer::mediaStatusChanged, this,
+                [this](QMediaPlayer::MediaStatus status) {
+                    handleMediaStatusChanged(static_cast<int>(status));
+                });
+        connect(m_player, &QMediaPlayer::errorOccurred, this,
+                [this](QMediaPlayer::Error, const QString &) { failActiveJob(); });
+        connect(m_sink, &QVideoSink::videoFrameChanged, this,
+                &ThumbnailProvider::handleFrameChanged);
+    }
     m_player->setSource(m_activeUrl);
     m_captureTimeout->start();
 }

@@ -295,7 +295,7 @@ private:
     QUrl m_imageSource;
     QString m_title;
     QString m_mediaKind = QStringLiteral("No media");
-    QString m_statusText = QStringLiteral("Ready");
+    QString m_statusText;
     QString m_lastCapturePath;
     QString m_audioDeviceName = QStringLiteral("No audio output");
     QImage m_originalImage;

@@ -106,8 +106,14 @@ Popup {
                                 model: ["Aurora Glass", "Midnight", "Graphite", "Ember", "Pearl",
                                         "Daylight Blue", "Rose Bloom", "Neon Gamer", "Warm Sunset",
                                         "Nordic Frost", "Synthwave", "Deep Jade"]
-                                Component.onCompleted: currentIndex = Math.max(0, model.indexOf(Theme.styleName))
+                                currentIndex: Math.max(0, model.indexOf(Theme.styleName))
                                 onActivated: Theme.styleName = currentText
+                                Connections {
+                                    target: Theme
+                                    function onStyleNameChanged() {
+                                        stylePicker.currentIndex = stylePicker.model.indexOf(Theme.styleName)
+                                    }
+                                }
                             }
                         }
                     }
@@ -353,7 +359,7 @@ Popup {
         RowLayout {
             Layout.fillWidth: true
             IconButton { glyph: "i"; label: "Creator"; active: true; accentColor: Theme.violet; onClicked: root.creatorRequested() }
-            Text { Layout.fillWidth: true; text: "Andiya 0.2  |  Aurora milestone"; color: Theme.textMuted; font.pixelSize: Theme.fontScale * 9; horizontalAlignment: Text.AlignHCenter }
+            Text { Layout.fillWidth: true; text: "Andiya 0.1.1  |  Appearance and playback"; color: Theme.textMuted; font.pixelSize: Theme.fontScale * 9; horizontalAlignment: Text.AlignHCenter }
             IconButton { label: "Done"; prominent: true; buttonSize: 38; onClicked: root.close() }
         }
     }

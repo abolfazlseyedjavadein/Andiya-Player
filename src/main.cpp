@@ -46,7 +46,11 @@ int main(int argc, char *argv[])
     app.setWindowIcon(QIcon(":/assets/andiya-icon.png"));
     ThumbnailProvider thumbnails;
     ScreenshotListModel screenshots;
-    screenshots.setDirectory(player.captureDirectoryPath());
+    // PNG metadata scans can be expensive for a large capture library.
+    // Start after the main window is created so it appears promptly.
+    QTimer::singleShot(250, &screenshots, [&player, &screenshots] {
+        screenshots.setDirectory(player.captureDirectoryPath());
+    });
     QObject::connect(&player, &PlayerController::captureDirectoryChanged, &screenshots, [&player, &screenshots] {
         screenshots.setDirectory(player.captureDirectoryPath());
     });

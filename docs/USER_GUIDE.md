@@ -19,7 +19,10 @@ Seek with the timeline. Comma and period are the default frame-step keys for
 seekable video. Frame stepping uses decoded timestamps and may need time to
 decode backward. **S** captures the original frame; **K** opens comparison.
 Settings are available with **Ctrl+,** and Workspace with **Ctrl+Shift+W**.
-Common shortcuts can be changed in Workspace.
+Change the theme in **Workspace → Preferences → Appearance → Theme**. It applies
+immediately and persists across launches. The same theme selector is available
+in **Settings → General → Interface style**. Common shortcuts can be changed
+in Workspace → Preferences.
 
 ## Review and export
 

@@ -24,7 +24,11 @@ from decoder information.
 
 The Workspace dialog exposes bookmarks/notes, loop markers, exports, filter
 settings/presets, catalog installation, encrypted stream profiles, diagnostics,
-text scaling and configurable shortcuts. Import replaces the corresponding
+theme selection, text scaling and configurable shortcuts. Both the Workspace
+and Settings theme selectors follow the current style. The theme persists in
+user settings. Startup defers capture metadata scanning until the event loop
+starts and creates the video-thumbnail decoder only when an uncached thumbnail
+is requested. Import replaces the corresponding
 workspace data after schema checks. Referenced media is not copied.
 
 Windows DPAPI protects complete stream-profile URLs. Portable workspace files

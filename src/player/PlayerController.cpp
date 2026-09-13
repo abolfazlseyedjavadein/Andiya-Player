@@ -134,7 +134,7 @@ PlayerController::PlayerController(PluginListModel *plugins, QObject *parent)
         if (playing()) {
             setStatusText(QStringLiteral("Playing"));
         } else if (m_hasMedia && !m_imageMode) {
-            setStatusText(QStringLiteral("Paused"));
+            setStatusText(QStringLiteral("Loaded"));
         }
     });
     connect(m_player, &QMediaPlayer::mediaStatusChanged, this, [this](QMediaPlayer::MediaStatus status) {
@@ -144,7 +144,7 @@ PlayerController::PlayerController(PluginListModel *plugins, QObject *parent)
             break;
         case QMediaPlayer::LoadedMedia:
         case QMediaPlayer::BufferedMedia:
-            setStatusText(QStringLiteral("Ready"));
+            setStatusText(QStringLiteral("Loaded"));
             if (m_pendingResumePosition > 0 && m_player->isSeekable()) {
                 const qint64 resumeAt = m_pendingResumePosition;
                 m_pendingResumePosition = 0;
@@ -328,7 +328,7 @@ void PlayerController::openMedia(const QUrl &url)
         m_videoHeight = m_originalImage.height();
         m_mediaKind = QStringLiteral("Image");
         if(m_originalImage.isNull()){m_hasMedia=false;setStatusText("Image could not be decoded");emit notification("Image error","This image is missing, corrupt, or unsupported.");}
-        else setStatusText(QStringLiteral("Image ready"));
+        else setStatusText(QStringLiteral("Image loaded"));
         emit positionChanged();
         emit durationChanged();
         emit playingChanged();
@@ -760,7 +760,7 @@ void PlayerController::saveWindowState(int x, int y, int width, int height, bool
 void PlayerController::captureFrameInternal(bool applyFilters)
 {
     const QImage frame=m_imageMode?m_originalImage:m_currentFrame.toImage();
-    if(frame.isNull()){emit notification("Frame not ready","Open a video or image and wait for its first frame.");return;}
+    if(frame.isNull()){emit notification("No frame available","Open a video or image and wait for its first frame.");return;}
     runCapture(frame,m_imageMode?0:qMax<qint64>(0,m_currentFrame.startTime()/1000),applyFilters);
 }
 
@@ -863,7 +863,7 @@ void PlayerController::clear()
     m_isLiveStream = false;
     m_videoWidth = 0;
     m_videoHeight = 0;
-    setStatusText(QStringLiteral("Ready"));
+    setStatusText({});
     emit mediaChanged();
     emit playingChanged();
     emit positionChanged();

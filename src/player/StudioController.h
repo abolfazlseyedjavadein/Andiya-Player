@@ -52,5 +52,5 @@ private:
     PluginListModel *m_plugins;
     QNetworkAccessManager *m_network;
     QVariantList m_catalog;
-    QString m_status="Ready";
+    QString m_status;
 };

@@ -1,9 +1,9 @@
 # Release packaging
 
-The current project version is **0.1.0**. The latest local Windows release was
-rebuilt with the creator name **Seyed Abolfazl Seyed Javadein** and passed the
-installed verification suite. No hosted release or successful macOS/Linux
-release run is implied by the configuration in this repository.
+The current project version is **0.1.1**. The Windows x64 packages are built
+from this source revision with the creator name **Seyed Abolfazl Seyed
+Javadein**. The installed verification suite covers Windows; macOS/Linux
+packages still require native-platform build and distribution validation.
 
 Use [the setup helper](BUILDING.md) as the authoritative release procedure.
 It packages the installed tree after verification, including the player,
@@ -13,15 +13,15 @@ dependencies from the selected kit.
 
 ## Artifacts and platform status
 
-- Windows x64: `Andiya-0.1.0-Windows-x64.zip` and
-  `Andiya-0.1.0-Windows-x64-setup.exe`. The NSIS installer installs per user under
+- Windows x64: `Andiya-0.1.1-Windows-x64.zip` and
+  `Andiya-0.1.1-Windows-x64-setup.exe`. The NSIS installer installs per user under
   local application data without requiring administrator rights. The current
   local ZIP and installer have been built and verified.
-- macOS: `Andiya-0.1.0-Darwin-<arch>.dmg` containing `Andiya.app`.
+- macOS: `Andiya-0.1.1-Darwin-<arch>.dmg` containing `Andiya.app`.
   Build on macOS with the selected architecture. The helper applies and verifies
   an ad-hoc signature; this is not Developer ID signing or notarization.
   Native build and distribution validation remain required.
-- Linux: `Andiya-0.1.0-Linux-x86_64.tar.gz` and `.deb`. Current metadata is
+- Linux: `Andiya-0.1.1-Linux-x86_64.tar.gz` and `.deb`. Current metadata is
   fixed to x86_64 and declares glibc 2.35+ plus runtime dependencies.
   This minimum is not proof of compatibility with every Qt build or distribution.
   Build and test on the intended baseline before distributing.

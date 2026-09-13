@@ -33,7 +33,9 @@ or [LinkedIn](https://www.linkedin.com/in/abolfazl-javadein/) to learn more.
   configurable common shortcuts.
 - The supplied Andiya icon is used in the window and executable.
 
-Open **Workspace** from the navigation rail or press **Ctrl+Shift+W**.
+Open **Workspace** from the navigation rail or press **Ctrl+Shift+W**. Change the
+theme in **Workspace → Preferences → Appearance → Theme**; the choice applies
+immediately and is remembered on the next launch.
 Settings remain available with **Ctrl+,**. Open a file with **Ctrl+O**, or a stream
 with **Ctrl+U**. The default frame-step keys are comma and period; **S** captures
 the original frame and **K** opens comparison.
