@@ -66,6 +66,18 @@ def main():
                 if results_file.is_file():
                     detail += results_file.read_text(encoding="utf-8", errors="replace")[-4000:]
                 print("::error::" + detail.replace("%", "%25").replace("\r", "%0D").replace("\n", "%0A"), flush=True)
+            if sys.platform == "darwin" and index == 1 and shutil.which("lldb"):
+                debug_dir = output / "debug"
+                debug_dir.mkdir(exist_ok=True)
+                shutil.copy2(output / "fixture.avi", debug_dir / "fixture.avi")
+                debug = subprocess.run(
+                    ["lldb", "--batch", "-o", "run", "-o", "thread backtrace all", "--",
+                     str(app), "--self-test", str(debug_dir)],
+                    env=env, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, timeout=150,
+                    text=True, errors="replace")
+                trace = debug.stdout[-18000:]
+                (output / "debugger.log").write_text(debug.stdout, encoding="utf-8")
+                print("::error::" + trace.replace("%", "%25").replace("\r", "%0D").replace("\n", "%0A"), flush=True)
             raise RuntimeError("Installed verification failed; inspect " + str(log))
     results = (output / "results.txt").read_text()
     if "ALL TESTS PASSED" not in results:
