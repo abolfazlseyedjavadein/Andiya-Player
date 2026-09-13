@@ -98,6 +98,19 @@ def main(argv=None):
         icon = stage / "usr/share/icons/hicolor/256x256/apps/io.andiya.player.png"
         icon.parent.mkdir(parents=True, exist_ok=True)
         shutil.copy2(ROOT / "assets/andiya-256.png", icon)
+    if sys.platform == "darwin":
+        # Plugin package folders are data, not nested application bundles.
+        # Keep them out of Contents/MacOS so codesign does not parse dotted
+        # plugin IDs as bundle names. Internal links preserve runtime lookup.
+        contents = stage / "Andiya.app/Contents"
+        resources = contents / "Resources"
+        resources.mkdir(exist_ok=True)
+        for name in ("plugins", "python_runtime"):
+            source = contents / "MacOS" / name
+            shutil.move(str(source), str(resources / name))
+            source.symlink_to("../Resources/" + name, target_is_directory=True)
+        for library in (resources / "plugins").rglob("*.dylib"):
+            run(["codesign", "--force", "--sign", "-", library])
     if args.verify or args.package:
         # qoffscreen is a test-only Qt plugin and is not included in release archives.
         if args.qt_prefix:
