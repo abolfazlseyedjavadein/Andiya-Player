@@ -50,9 +50,7 @@ jobs:
           result=${PIPESTATUS[0]}
           set -e
           if [ "$result" -ne 0 ]; then
-            grep -Ei 'undefined reference|error:|fatal error|error C[0-9]+|CMake Error|Setup failed|RuntimeError|FAIL |collect2:|ld:|symbol\(s\) not found|dyld:|Library not loaded' \
-              "$RUNNER_TEMP/andiya-setup.log" | tail -n 8 |
-              while IFS= read -r line; do echo "::error::$line"; done || true
+            python -c 'import os,pathlib; s=(pathlib.Path(os.environ["RUNNER_TEMP"])/"andiya-setup.log").read_text(errors="replace")[-3500:]; print("::error::"+s.replace("%","%25").replace("\r","%0D").replace("\n","%0A"))'
             exit "$result"
           fi
       - name: Upload verification
