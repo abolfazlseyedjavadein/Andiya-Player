@@ -132,7 +132,7 @@ def main(argv=None):
                                  "plugins/platforms")
             for test_file in test_copy.glob("*qoffscreen*"):
                 test_file.unlink()
-    if sys.platform == "darwin":
+    if sys.platform == "darwin" and not os.environ.get("CI"):
         # Local/ad-hoc identity only. Public distribution requires a maintainer's signing identity.
         run(["codesign", "--force", "--deep", "--sign", "-", stage / "Andiya.app"])
         run(["codesign", "--verify", "--deep", "--strict", stage / "Andiya.app"])
