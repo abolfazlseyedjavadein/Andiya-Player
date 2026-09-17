@@ -64,6 +64,9 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: Andiya-${{ runner.os }}
-          path: ${{ runner.temp }}/andiya-build/packages/*
+          path: |
+            ${{ runner.temp }}/andiya-build/packages/*
+            !${{ runner.temp }}/andiya-build/packages/_CPack_Packages
+            !${{ runner.temp }}/andiya-build/packages/_CPack_Packages/**
           compression-level: 0
           if-no-files-found: error

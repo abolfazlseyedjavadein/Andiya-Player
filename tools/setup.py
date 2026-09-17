@@ -146,6 +146,11 @@ def main(argv=None):
                           'set(CPACK_INSTALLED_DIRECTORIES "' + stage.as_posix() + ';/")\n',
                           encoding="utf-8")
         run(["cpack", "--config", config, "-C", "Release"], cwd=build)
+        # DragNDrop leaves a multi-GB UDRW image under _CPack_Packages. Do not
+        # ship that staging tree as a CI artifact.
+        for leftover in (build / "packages" / "_CPack_Packages", build / "_CPack_Packages"):
+            if leftover.exists():
+                shutil.rmtree(leftover)
         cache = (build / "CPackConfig.cmake").read_text()
         import re
         version = re.search(r'set\(CPACK_PACKAGE_VERSION "([^"]+)"\)', cache).group(1)
@@ -157,6 +162,7 @@ def main(argv=None):
         for artifact in artifacts:
             digest = hashlib.sha256(artifact.read_bytes()).hexdigest()
             artifact.with_name(artifact.name + ".sha256").write_text(digest + "  " + artifact.name + "\n")
+            print("Package:", artifact.name, artifact.stat().st_size, "bytes", flush=True)
         print("Packages:", build / "packages")
     print("Installed app:", prefix / ("Andiya.app" if sys.platform == "darwin" else "bin"))
 
