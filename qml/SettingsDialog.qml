@@ -359,7 +359,7 @@ Popup {
         RowLayout {
             Layout.fillWidth: true
             IconButton { glyph: "i"; label: "Creator"; active: true; accentColor: Theme.violet; onClicked: root.creatorRequested() }
-            Text { Layout.fillWidth: true; text: "Andiya 0.1.2  |  Appearance and playback"; color: Theme.textMuted; font.pixelSize: Theme.fontScale * 9; horizontalAlignment: Text.AlignHCenter }
+            Text { Layout.fillWidth: true; text: "Andiya 0.1.3  |  Appearance and playback"; color: Theme.textMuted; font.pixelSize: Theme.fontScale * 9; horizontalAlignment: Text.AlignHCenter }
             IconButton { label: "Done"; prominent: true; buttonSize: 38; onClicked: root.close() }
         }
     }
