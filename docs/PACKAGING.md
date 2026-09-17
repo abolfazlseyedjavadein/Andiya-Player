@@ -95,9 +95,8 @@ The GitHub Actions matrix runs the same setup helper used for local release
 verification on Windows, macOS and Linux. It builds into the runner's temporary
 directory, tests the installed runtime, packages the verified stage and uploads
 both packages and verification output as workflow artifacts. The Windows CI job
-creates the portable ZIP; the NSIS installer in the published Windows release is
-built and verified separately. Pushing a `v*` tag publishes the matrix packages
-to a GitHub Release after every platform job succeeds.
+creates the portable ZIP and the per-user NSIS installer. Pushing a `v*` tag
+publishes the matrix packages to a GitHub Release after every platform job succeeds.
 
 A platform should be described as CI-verified only after its matrix job succeeds.
 A successful CI package is still not a substitute for an installation test on a

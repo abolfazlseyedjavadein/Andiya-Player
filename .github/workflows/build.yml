@@ -37,12 +37,24 @@ jobs:
       - name: Install Linux build tools
         if: runner.os == 'Linux'
         run: sudo apt-get update && sudo apt-get install -y ninja-build dpkg-dev
+      - name: Install NSIS
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          choco install nsis -y --no-progress
+          $makensis = @(
+            "${env:ProgramFiles(x86)}\NSIS\makensis.exe",
+            "${env:ProgramFiles}\NSIS\makensis.exe"
+          ) | Where-Object { Test-Path $_ } | Select-Object -First 1
+          if (-not $makensis) { throw 'makensis.exe not found after NSIS install' }
+          Add-Content -Path $env:GITHUB_PATH -Value (Split-Path $makensis)
+          Add-Content -Path $env:GITHUB_ENV -Value "ANDIYA_NSIS=$makensis"
       - name: Build, verify, and package
         shell: bash
         run: |
           options=()
           if [ "$RUNNER_OS" = "Windows" ]; then
-            options+=(--archive-only)
+            options+=(--nsis "$(cygpath -u "$ANDIYA_NSIS")")
           fi
           set +e
           python -B tools/setup.py --qt-prefix "$QT_ROOT_DIR" \
@@ -92,14 +104,17 @@ jobs:
           name: Andiya-Linux
           path: dist
       - name: Publish GitHub Release
-        uses: softprops/action-gh-release@v2
+        uses: ncipollo/release-action@v1
         with:
-          files: dist/*
-          fail_on_unmatched_files: true
+          artifacts: dist/*
+          artifactErrorsFailBuild: true
+          allowUpdates: true
+          replacesArtifacts: true
+          omitNameDuringUpdate: true
           body: |
             CI-built packages for Windows, macOS, and Linux.
 
-            - **Windows:** portable ZIP (unsigned). The NSIS installer is not included in this CI upload.
+            - **Windows:** portable ZIP and per-user NSIS installer (`-setup.exe`). Binaries are unsigned.
             - **macOS:** ad-hoc signed `.dmg` for Apple Silicon. Gatekeeper will warn until Developer ID signing and notarization.
             - **Linux:** `.tar.gz` and `.deb` for x86_64 (glibc 2.35+).
 
