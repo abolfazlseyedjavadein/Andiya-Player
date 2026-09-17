@@ -1,6 +1,6 @@
 # Release packaging
 
-The current project version is **0.1.1**. The Windows x64 packages are built
+The current project version is **0.1.2**. The Windows x64 packages are built
 from this source revision with the creator name **Seyed Abolfazl Seyed
 Javadein**. The installed verification suite covers Windows; macOS/Linux
 packages still require native-platform build and distribution validation.
@@ -13,15 +13,15 @@ dependencies from the selected kit.
 
 ## Artifacts and platform status
 
-- Windows x64: `Andiya-0.1.1-Windows-x64.zip` and
-  `Andiya-0.1.1-Windows-x64-setup.exe`. The NSIS installer installs per user under
+- Windows x64: `Andiya-0.1.2-Windows-x64.zip` and
+  `Andiya-0.1.2-Windows-x64-setup.exe`. The NSIS installer installs per user under
   local application data without requiring administrator rights. The current
   local ZIP and installer have been built and verified.
-- macOS: `Andiya-0.1.1-Darwin-<arch>.dmg` containing `Andiya.app`.
+- macOS: `Andiya-0.1.2-Darwin-<arch>.dmg` containing `Andiya.app`.
   Build on macOS with the selected architecture. The helper applies and verifies
   an ad-hoc signature; this is not Developer ID signing or notarization.
   Native build and distribution validation remain required.
-- Linux: `Andiya-0.1.1-Linux-x86_64.tar.gz` and `.deb`. Current metadata is
+- Linux: `Andiya-0.1.2-Linux-x86_64.tar.gz` and `.deb`. Current metadata is
   fixed to x86_64 and declares glibc 2.35+ plus runtime dependencies.
   This minimum is not proof of compatibility with every Qt build or distribution.
   Build and test on the intended baseline before distributing.
@@ -96,7 +96,8 @@ verification on Windows, macOS and Linux. It builds into the runner's temporary
 directory, tests the installed runtime, packages the verified stage and uploads
 both packages and verification output as workflow artifacts. The Windows CI job
 creates the portable ZIP; the NSIS installer in the published Windows release is
-built and verified separately. CI does not publish a GitHub release automatically.
+built and verified separately. Pushing a `v*` tag publishes the matrix packages
+to a GitHub Release after every platform job succeeds.
 
 A platform should be described as CI-verified only after its matrix job succeeds.
 A successful CI package is still not a substitute for an installation test on a
