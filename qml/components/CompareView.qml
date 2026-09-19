@@ -17,6 +17,21 @@ Item {
     property bool livePreview: false
 
     onVisibleChanged: if (!visible) livePreview = false
+    onLivePreviewChanged: if (livePreview && player.playing) player.refreshCompareFrame()
+
+    MouseArea {
+        anchors.fill: parent
+        acceptedButtons: Qt.AllButtons
+        // Keep clicks on the overlay; do not toggle the video underneath.
+    }
+
+    Connections {
+        target: player
+        function onPlayingChanged() {
+            if (root.visible && player.playing)
+                root.livePreview = true
+        }
+    }
 
     // While playing with Live preview on, re-grab and re-filter both frames
     // on a throttled interval instead of every decoded frame -- keeps the
@@ -220,7 +235,11 @@ Item {
                         toolTip: player.playing ? "Pause" : "Play"
                         darkSurface: true
                         enabled: !player.imageMode
-                        onClicked: player.togglePlayback()
+                        onClicked: {
+                            if (!player.playing)
+                                root.livePreview = true
+                            player.togglePlayback()
+                        }
                     }
                     IconButton {
                         glyph: "\u276E"

@@ -88,7 +88,10 @@ Optional `configure(parameters)` runs at process startup before frames.
 
 The module's directory is added to the import path and used as the working
 directory. Bytecode-cache generation is disabled. The app does not run pip,
-create a virtual environment or install a requirements file.
+create a virtual environment or install a requirements file. You do not start
+Python from Command Prompt to use a plugin in the player; Andiya launches the
+interpreter itself as a hidden worker process. See
+[How Python plugins run](../PLUGIN_DEVELOPMENT.md#how-python-plugins-run-you-do-not-use-cmd-in-the-player).
 
 Interpreter search on Windows tries `py`, `python3`, then `python`;
 other platforms try `python3`, then `python`. Install Python 3.9+ and ensure

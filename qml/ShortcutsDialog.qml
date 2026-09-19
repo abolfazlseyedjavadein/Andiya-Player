@@ -33,6 +33,7 @@ Popup {
             rows: [
                 { label: "Capture with active filters", keys: ["S"] },
                 { label: "Capture untouched frame", keys: ["Ctrl", "Shift", "S"] },
+                { label: "Capture untouched frame (alt)", keys: ["C"] },
                 { label: "Compare original vs. filtered", keys: ["K"] }
             ]
         },

@@ -6,29 +6,55 @@ is required to use the player.
 
 The current API is for CPU image filters used by image/video preview and exports.
 It does not provide custom UI panels, audio filters, GPU kernels, resizing or
-payment processing. Start with Python for a simple prototype or C++ for native
-performance. Both execute in a separate process.
+payment processing. Start with Python for a simple prototype or C/C++ for native
+performance. Both execute in a **separate process** that Andiya starts itself.
 
-## 1. Prepare your tools
+## How Python plugins run (you do not use CMD in the player)
+
+You never open Command Prompt, PowerShell or a terminal to *use* a Python
+plugin inside Andiya.
+
+When a Python filter is enabled:
+
+1. Andiya looks on the system PATH for a Python 3.9+ interpreter (`py`, then
+   `python3`, then `python` on Windows).
+2. It starts that interpreter as a hidden background process.
+3. It runs Andiya's bridge script `python_runtime/andiya_python_host.py`.
+4. The bridge loads your `filter.py` and talks to the player over a binary
+   pipe (frames in, frames out). No console window is shown.
+
+You only use a terminal while **developing**: copying files, running the
+smoke test, or packaging a `.andiyaplugin` bundle.
+
+Install Python 3.9+ once from [python.org](https://www.python.org/downloads/)
+and tick **Add python.exe to PATH**. Restart Andiya after installing Python so
+it can find the interpreter. A plugin that needs extra packages (NumPy, etc.)
+must be able to `import` them in *that* interpreter; Andiya does not run
+`pip`, create a venv, or open a CMD window for you.
+
+Native C/C++ plugins do not need Python at all. Andiya loads them through
+`AndiyaFilterWorker` in a separate process.
 
 Use a source checkout for the commands below; run them from its root. A packaged
 SDK also includes these examples under `docs/examples`, the header under
 `sdk/include/andiya`, and the packager under `sdk/tools`. See
 [installed locations](docs/PACKAGING.md#installed-layout).
 
-Python plugins require Python 3.9+ on the app's PATH. Native plugins require
-CMake 3.24+ and a compiler matching the destination OS and architecture. The
-native starter uses only the public header and the C++ standard library; Qt is
-not required to compile it.
+---
 
-Build or install Andiya first to obtain `AndiyaPluginValidator` and
-`AndiyaFilterWorker` (`.exe` on Windows). Keep the complete installed runtime
-together so the helpers can find their libraries.
+## Tutorial A — Python plugin, step by step
 
-## 2. Create a Python filter
+### A1. Install Python
 
-Copy [the Python starter](docs/examples/python-invert) into an external working
-folder. It contains `filter.py`, `plugin.json` and an MIT `LICENSE`:
+- Windows: install Python 3.9+ and enable **Add python.exe to PATH**.
+- macOS/Linux: `python3 --version` should print 3.9 or newer.
+
+You do **not** run this plugin from CMD later. This is only so Andiya can
+find an interpreter.
+
+### A2. Copy the starter
+
+The starter inverts RGB and keeps alpha. Copy it out of the source tree:
 
 ~~~powershell
 New-Item -ItemType Directory -Force ../Andiya-local/plugin-work
@@ -42,60 +68,119 @@ mkdir -p ../Andiya-local/plugin-work
 cp -R docs/examples/python-invert ../Andiya-local/plugin-work/my-invert
 ~~~
 
-Change the manifest's ID, name, vendor and description for your product. Use a
-stable ID such as `com.yourcompany.invert`; updates and presets use this identity.
-The entrypoint is relative to the folder containing `plugin.json`.
+The folder must contain `plugin.json` and `filter.py` (plus a license file).
 
-The starter inverts blue, green and red while preserving alpha. Its optional
-`configure(parameters)` callback stores an `amount` setting; the manifest defines
-the corresponding slider. The required function is:
+### A3. Give it your identity
+
+Edit `../Andiya-local/plugin-work/my-invert/plugin.json`:
+
+- `id`: stable ASCII id such as `com.yourcompany.invert` (updates use this)
+- `name`, `vendor`, `description`
+- `entrypoint`: `"filter.py"` (relative to this folder)
+- `execution`: `"python"` and `runtime`: `"process"`
+
+### A4. Write the filter
+
+Open `filter.py`. The only required function is:
 
 ~~~python
 def process_frame(width, height, stride, pixel_format, timestamp_us, data):
-    # data contains stride * height bytes in BGRA32 order.
-    return data
+    # data is stride * height bytes, BGRA32, one pixel = B,G,R,A
+    output = bytearray(data)
+    # change pixels here; do not resize
+    return bytes(output)
 ~~~
 
-Return a same-length `bytes` or `bytearray`. Returning `None` deliberately
-bypasses the filter. Do not resize, modify the input bytes, or write to the
-binary stdout pipe. Normal Python `print()` is redirected to stderr, but the
-app currently discards worker stderr. For diagnostic details, run the bridge using the
-[test harness](#5-test-your-plugin).
+Rules:
 
-The bridge does not install dependencies. If you use third-party packages, make
-them available to the interpreter selected by the app; see
-[Python interpreter selection](docs/PLUGIN_REFERENCE.md#python-runtime).
+- Return `bytes` or `bytearray` of the **same length**, or `None` to skip
+  (bypass) this filter.
+- Do not resize, do not write to stdout, do not modify the input `data` object.
+- Optional `configure(parameters)` runs once when Andiya starts the worker.
+  The starter uses it for an `amount` slider declared in `plugin.json`.
 
-## 3. Create a native filter
+The starter inverts blue/green/red. Change the loop to implement your effect.
 
-[The native starter](docs/examples/native-invert) supplies a complete C++ filter,
-CMake project and platform-generated manifest. Build it outside the checkout:
+### A5. Smoke-test from a terminal (optional, development only)
+
+This is the only time you use CMD/PowerShell for Python. It proves the bridge
+can load your file; the player uses the same bridge automatically.
+
+~~~powershell
+py -3 -B docs/examples/check_filter.py python runtime/python/andiya_python_host.py ../Andiya-local/plugin-work/my-invert/filter.py
+~~~
+
+On macOS/Linux use `python3` instead of `py -3`. For an installed SDK, the
+bridge is next to the app in `python_runtime/andiya_python_host.py`.
+
+### A6. Install it in Andiya
+
+1. Start Andiya (double-click the app or installer shortcut — not CMD).
+2. Open **Workspace → Filters → Install folder…**
+3. Select `../Andiya-local/plugin-work/my-invert`
+4. Review the publisher and permissions, then **enable** the plugin.
+5. Open an image or video, press **K** for original vs. filtered compare.
+
+Installation **copies** the folder. After you edit `filter.py`, install the
+folder again. **Rescan** does not copy your edits.
+
+---
+
+## Tutorial B — C/C++ plugin, step by step
+
+Native plugins are a shared library (`.dll` / `.so` / `.dylib`) plus
+`plugin.json`. Qt is **not** required. You need CMake 3.24+ and a compiler
+for the target OS/architecture (MSVC 2022 on Windows x64).
+
+### B1. Copy and build the starter
+
+The native starter inverts RGB through the public C ABI.
+
+Windows (from the source root):
 
 ~~~powershell
 cmake -S docs/examples/native-invert -B ../Andiya-local/native-invert -G "Visual Studio 17 2022" -A x64 "-DANDIYA_SDK_INCLUDE=$((Resolve-Path include).Path)"
 cmake --build ../Andiya-local/native-invert --config Release
 ~~~
 
-On macOS/Linux, with Ninja installed:
+macOS/Linux (Ninja):
 
 ~~~sh
 cmake -S docs/examples/native-invert -B ../Andiya-local/native-invert -G Ninja -DCMAKE_BUILD_TYPE=Release -DANDIYA_SDK_INCLUDE="$PWD/include"
 cmake --build ../Andiya-local/native-invert
 ~~~
 
-The installable folder is `../Andiya-local/native-invert/package`. It contains
-the generated `plugin.json`, library and license. Build separately for each
-destination OS and architecture. For a packaged SDK, pass its absolute
-`sdk/include` directory instead of the source `include` directory.
+For a packaged SDK, pass its `sdk/include` directory instead of `include`.
+The installable folder is `../Andiya-local/native-invert/package` (`plugin.json`,
+the library, and `LICENSE`).
 
-Before using your own ID, change it in **both** `plugin.cpp` and
-`plugin.json.in`. The exported `andiya_plugin_initialize` function fills the
-callbacks defined in the [public header](include/andiya/plugin_api.h).
-Write into the host's output buffer and preserve its dimensions, format and
-ownership. Do not let C++ exceptions cross the C ABI.
+Build separately for each OS and architecture. A Windows `.dll` will not load
+on macOS or Linux.
 
-The starter has no custom parameters; the app's strength control still works.
-For configurable native filters, the optional export is:
+### B2. Change the plugin id
+
+Before shipping your own product, change the id in **both**:
+
+- `docs/examples/native-invert/plugin.cpp` (`pluginId()` return value)
+- `docs/examples/native-invert/plugin.json.in` (`"id"`)
+
+Then rebuild.
+
+### B3. Implement `process_frame`
+
+The host calls the C function exported as `andiya_plugin_initialize`. That
+fills `AndiyaImageFilterApi` with your callbacks. `process_frame` must:
+
+- Read BGRA32 pixels from `input->data`
+- Write the same size/format into the host-owned `output->data`
+- Preserve dimensions, stride and buffer ownership (do not free or replace
+  the pointer)
+- Return `0` on success
+- Never let a C++ exception cross the C ABI
+
+See [the public header](include/andiya/plugin_api.h) and the starter
+`plugin.cpp`. The shipped `plugins/soft-contrast/plugin.cpp` shows optional
+JSON parameters via:
 
 ~~~cpp
 extern "C" ANDIYA_PLUGIN_EXPORT int32_t ANDIYA_PLUGIN_CALL
@@ -103,11 +188,29 @@ andiya_plugin_configure(void *context, const char *parameters_json);
 ~~~
 
 This optional symbol is resolved by name and is not declared in the public
-header. Parse the UTF-8 JSON, store settings in your plugin context, and return
-zero on success. See the shipped `plugins/soft-contrast/plugin.cpp` for a
-parameterized example using Qt Core for JSON parsing.
+header. Return zero on success. The app's strength slider still applies even
+if you have no custom parameters.
 
-## 4. Validate, install and enable
+### B4. Validate, then install in the app
+
+Windows, with a setup-helper stage:
+
+~~~powershell
+$runtime = (Resolve-Path ../Andiya-local/build-windows/stage/bin).Path
+& "$runtime/AndiyaPluginValidator.exe" ../Andiya-local/native-invert/package
+~~~
+
+On macOS the helper is in `Andiya.app/Contents/MacOS`; on Linux it is under
+`opt/andiya/bin`. Validation checks metadata and files; it does not prove the
+pixels are correct.
+
+Then in Andiya: **Workspace → Filters → Install folder…** and select the
+`package` folder. Enable it and open media. No extra CMD step is needed at
+runtime — Andiya launches `AndiyaFilterWorker` itself.
+
+---
+
+## Validate, install and enable (both runtimes)
 
 For a Windows installed tree created by the setup helper:
 
@@ -117,22 +220,15 @@ $runtime = (Resolve-Path ../Andiya-local/build-windows/stage/bin).Path
 & "$runtime/AndiyaPluginValidator.exe" ../Andiya-local/native-invert/package
 ~~~
 
-Adjust the build directory if you used `--build-dir`. On macOS the helper is
-inside `Andiya.app/Contents/MacOS`; on Linux it is under `opt/andiya/bin`.
-Validation prints JSON and exits nonzero if the package is invalid. It checks
-metadata and files; it does not prove a plugin processes frames correctly.
-
-In Andiya, open **Workspace → Filters → Install folder…**, select the plugin
-folder, review the publisher and permission disclosures, then enable it.
-Installation copies the folder. After editing your original development folder,
-install it again; **Rescan** alone does not copy edits into the installed version.
+Adjust the build directory if you used `--build-dir`. Validation prints JSON
+and exits nonzero if the package is invalid.
 
 Plugins are discovered without executing their code. A manifest's
 `enabled: true` does not grant approval. Changed content requires another
 review. **Restart** retries workers; order, strength, sliders and presets are
 available in Filters. An update preserves one prior version for **Rollback**.
 
-## 5. Test your plugin
+## Test your plugin
 
 The examples include a standard-library-only
 [worker smoke test](docs/examples/check_filter.py). It sends two known BGRA
@@ -146,12 +242,11 @@ py -3 -B docs/examples/check_filter.py native "$runtime/AndiyaFilterWorker.exe" 
 ~~~
 
 On macOS/Linux replace `py -3` with `python3` and use the platform's worker path.
-For an installed SDK, the Python bridge is in the runtime's `python_runtime`
-directory. Adapt the expected pixels when developing a different effect.
+Adapt the expected pixels when developing a different effect.
 
 Also test in the app: enable the filter, change strength/order, open an image
-and a video, compare original/filtered frames, and export a full-resolution PNG.
-Test transparent pixels, your slider extremes, repeated frames and slow inputs.
+and a video, compare original/filtered frames (**K**), and export a PNG.
+Test transparent pixels, slider extremes, repeated frames and slow inputs.
 Preview uses a smaller resolution than export, and the two use independent
 worker instances.
 
@@ -161,7 +256,7 @@ a nonzero `process_frame` return or invalid output buffer is replaced with the
 input frame inside the native host and can appear successful to the exporter.
 Do not rely on a native error return to abort an export.
 
-## 6. Package and distribute
+## Package and distribute
 
 ~~~powershell
 py -3 -B tools/package_plugin.py ../Andiya-local/plugin-work/my-invert ../Andiya-local/my-invert.andiyaplugin
