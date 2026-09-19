@@ -17,8 +17,11 @@ both sidebars and retains their selection.
 
 Seek with the timeline. Comma and period are the default frame-step keys for
 seekable video. Frame stepping uses decoded timestamps and may need time to
-decode backward. **S** captures the original frame; **K** opens comparison.
-Settings are available with **Ctrl+,** and Workspace with **Ctrl+Shift+W**.
+decode backward. **S** (or **Print Screen**) captures the current frame with
+active filters; **Ctrl+Shift+S** or **C** captures the untouched decoded frame.
+**K** opens original vs. filtered comparison; press play there to watch both
+sides update. Settings are available with **Ctrl+,** and Workspace with
+**Ctrl+Shift+W**.
 Change the theme in **Workspace → Preferences → Appearance → Theme**. It applies
 immediately and persists across launches. The same theme selector is available
 in **Settings → General → Interface style**. Common shortcuts can be changed

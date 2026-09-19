@@ -70,7 +70,10 @@ ApplicationWindow {
     }
 
     function plainShortcutEnabled() {
-        return !activeFocusItem || (activeFocusItem.cursorPosition === undefined && !activeFocusItem.activeFocusOnTab)
+        // Only suppress letter/arrow keys while a text field is focused.
+        // Buttons are tab-focusable, but they must not steal S/K/Space/etc.
+        const item = activeFocusItem
+        return !item || item.cursorPosition === undefined
     }
 
     Component.onCompleted: {
@@ -654,9 +657,10 @@ ApplicationWindow {
     Shortcut { sequence: "Ctrl+O"; onActivated: openDialog.open() }
     Shortcut { sequence: "Ctrl+U"; onActivated: networkStreamDialog.openWith("") }
     Shortcut { sequence: studio.shortcuts.play; enabled: window.plainShortcutEnabled(); onActivated: { player.togglePlayback(); mediaStage.revealOverlay() } }
-    Shortcut { sequence: studio.shortcuts.capture; enabled: window.plainShortcutEnabled(); onActivated: player.captureOriginalFrame() }
+    Shortcut { sequence: studio.shortcuts.capture; enabled: window.plainShortcutEnabled(); onActivated: player.captureFrame() }
     Shortcut { sequence: "C"; enabled: window.plainShortcutEnabled(); onActivated: player.captureOriginalFrame() }
     Shortcut { sequence: "Ctrl+Shift+S"; onActivated: player.captureOriginalFrame() }
+    Shortcut { sequence: "Print"; enabled: window.plainShortcutEnabled(); onActivated: player.captureFrame() }
     Shortcut {
         sequence: studio.shortcuts.compare
         enabled: window.plainShortcutEnabled()

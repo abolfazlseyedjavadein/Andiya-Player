@@ -446,15 +446,15 @@ GlassPanel {
             enabled: player.hasMedia
             onTriggered: player.captureFrame()
         }
-    ThemedMenuItem {
-        text: "Compare original vs. filtered (K)"
-        enabled: player.hasMedia
-        onTriggered: player.enterCompareMode()
-    }
-    ThemedMenuItem {
-        text: "Open network stream (Ctrl+U)..."
-        onTriggered: root.networkStreamRequested()
-    }
+        ThemedMenuItem {
+            text: "Compare original vs. filtered (K)"
+            enabled: player.hasMedia
+            onTriggered: player.enterCompareMode()
+        }
+        ThemedMenuItem {
+            text: "Open network stream (Ctrl+U)..."
+            onTriggered: root.networkStreamRequested()
+        }
         ThemedMenuItem {
             text: player.hasSubtitles ? "Change subtitles..." : "Load subtitles..."
             enabled: player.hasMedia && player.mediaKind === "Video"
