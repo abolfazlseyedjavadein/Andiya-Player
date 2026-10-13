@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.24)
 
-project(Andiya VERSION 0.1.4 LANGUAGES CXX)
+project(Andiya VERSION 0.1.5 LANGUAGES CXX)
 
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -37,6 +37,7 @@ set_source_files_properties(qml/ShortcutsDialog.qml PROPERTIES QT_RESOURCE_ALIAS
 set_source_files_properties(qml/NetworkStreamDialog.qml PROPERTIES QT_RESOURCE_ALIAS NetworkStreamDialog.qml)
 set_source_files_properties(qml/components/GlassPanel.qml PROPERTIES QT_RESOURCE_ALIAS GlassPanel.qml)
 set_source_files_properties(qml/components/IconButton.qml PROPERTIES QT_RESOURCE_ALIAS IconButton.qml)
+set_source_files_properties(qml/components/VectorIcon.qml PROPERTIES QT_RESOURCE_ALIAS VectorIcon.qml)
 set_source_files_properties(qml/components/ThemedMenu.qml PROPERTIES QT_RESOURCE_ALIAS ThemedMenu.qml)
 set_source_files_properties(qml/components/ThemedMenuItem.qml PROPERTIES QT_RESOURCE_ALIAS ThemedMenuItem.qml)
 set_source_files_properties(qml/components/ThemedMenuSeparator.qml PROPERTIES QT_RESOURCE_ALIAS ThemedMenuSeparator.qml)
@@ -57,6 +58,8 @@ qt_add_executable(Andiya WIN32
     src/main.cpp
     src/player/PlayerController.cpp
     src/player/PlayerController.h
+    src/player/AudioPlaybackBuffer.cpp
+    src/player/AudioPlaybackBuffer.h
     src/player/ThumbnailProvider.cpp
     src/player/ThumbnailProvider.h
     src/player/ScreenshotListModel.cpp
@@ -94,6 +97,7 @@ qt_add_qml_module(Andiya
         qml/NetworkStreamDialog.qml
         qml/components/GlassPanel.qml
         qml/components/IconButton.qml
+        qml/components/VectorIcon.qml
         qml/components/ThemedMenu.qml
         qml/components/ThemedMenuItem.qml
         qml/components/ThemedMenuSeparator.qml
@@ -112,6 +116,7 @@ qt_add_qml_module(Andiya
 target_include_directories(Andiya PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/src
     ${CMAKE_CURRENT_SOURCE_DIR}/include
+    ${CMAKE_CURRENT_SOURCE_DIR}/third_party/signalsmith
 )
 
 target_link_libraries(Andiya PRIVATE
@@ -209,4 +214,12 @@ if(WIN32)
     target_link_libraries(AndiyaPluginValidator PRIVATE crypt32)
 endif()
 add_dependencies(Andiya AndiyaFilterWorker AndiyaPluginValidator)
+include(CTest)
+if(BUILD_TESTING)
+    add_library(AndiyaFailingTestFilter SHARED tests/failing_filter.cpp)
+    target_include_directories(AndiyaFailingTestFilter PRIVATE include)
+    target_compile_definitions(Andiya PRIVATE
+        ANDIYA_TEST_FILTER_PATH="$<TARGET_FILE:AndiyaFailingTestFilter>")
+    add_dependencies(Andiya AndiyaFailingTestFilter)
+endif()
 include(cmake/Packaging.cmake)

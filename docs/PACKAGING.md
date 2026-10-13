@@ -1,6 +1,6 @@
 # Release packaging
 
-The current project version is **0.1.4**. The Windows x64 packages are built
+The current project version is **0.1.5**. The Windows x64 packages are built
 from this source revision with the creator name **Seyed Abolfazl Seyed
 Javadein**. The installed verification suite covers Windows; macOS/Linux
 packages still require native-platform build and distribution validation.
@@ -13,15 +13,15 @@ dependencies from the selected kit.
 
 ## Artifacts and platform status
 
-- Windows x64: `Andiya-0.1.4-Windows-x64.zip` and
-  `Andiya-0.1.4-Windows-x64-setup.exe`. The NSIS installer installs per user under
+- Windows x64: `Andiya-0.1.5-Windows-x64.zip` and
+  `Andiya-0.1.5-Windows-x64-setup.exe`. The NSIS installer installs per user under
   local application data without requiring administrator rights. The current
-  local ZIP and installer have been built and verified.
-- macOS: `Andiya-0.1.4-Darwin-<arch>.dmg` containing `Andiya.app`.
+  release workflow builds and verifies the ZIP and installer.
+- macOS: `Andiya-0.1.5-Darwin-<arch>.dmg` containing `Andiya.app`.
   Build on macOS with the selected architecture. The helper applies and verifies
   an ad-hoc signature; this is not Developer ID signing or notarization.
   Native build and distribution validation remain required.
-- Linux: `Andiya-0.1.4-Linux-x86_64.tar.gz` and `.deb`. Current metadata is
+- Linux: `Andiya-0.1.5-Linux-x86_64.tar.gz` and `.deb`. Current metadata is
   fixed to x86_64 and declares glibc 2.35+ plus runtime dependencies.
   This minimum is not proof of compatibility with every Qt build or distribution.
   Build and test on the intended baseline before distributing.
@@ -70,7 +70,8 @@ checkout, not additional bundled files.
 
 1. Set the version in the root CMake project for a new version and synchronize
    versioned documentation. Record the OS, architecture, compiler, Qt, Python
-   and CMake versions used.
+   and CMake versions used. Add release notes at `docs/releases/v<VERSION>.md`;
+   the tagged release workflow uses this file as the GitHub Release description.
 2. Run `setup.ps1 --package` or `sh setup.sh --package` with the matching Qt
    prefix. Check `verification/results.txt`, regression logs and UI snapshots.
 3. Test the resulting package on a clean target machine or VM, including local

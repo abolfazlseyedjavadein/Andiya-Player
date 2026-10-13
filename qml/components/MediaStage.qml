@@ -27,6 +27,8 @@ GlassPanel {
 
     Rectangle {
         anchors.fill: parent
+        anchors.margins: root.fullscreenMode ? 0 : 1
+        radius: root.fullscreenMode ? 0 : root.radius - 1
         color: root.fullscreenMode ? "#000000" : Theme.mediaSurface
 
         gradient: Gradient {
@@ -39,7 +41,7 @@ GlassPanel {
     Canvas {
         id: ambience
         anchors.fill: parent
-        opacity: player.hasMedia ? 0.12 : 0.7
+        opacity: player.hasMedia ? 0.10 : 0.55
         visible: !root.fullscreenMode && (!player.hasMedia || player.mediaKind === "Audio")
 
         onPaint: {
@@ -48,24 +50,25 @@ GlassPanel {
 
             const glow = ctx.createRadialGradient(width * 0.5, height * 0.43, 2,
                                                    width * 0.5, height * 0.43, Math.min(width, height) * 0.56)
-            glow.addColorStop(0, "rgba(92, 214, 255, 0.13)")
-            glow.addColorStop(0.38, "rgba(155, 124, 255, 0.08)")
-            glow.addColorStop(1, "rgba(0, 0, 0, 0)")
+            glow.addColorStop(0, Qt.rgba(Theme.cyan.r, Theme.cyan.g, Theme.cyan.b, 0.15))
+            glow.addColorStop(0.5, Qt.rgba(Theme.cyan.r, Theme.cyan.g, Theme.cyan.b, 0.05))
+            glow.addColorStop(1, "transparent")
             ctx.fillStyle = glow
             ctx.fillRect(0, 0, width, height)
 
             ctx.lineWidth = 1
-            for (let ring = 0; ring < 4; ++ring) {
-                ctx.strokeStyle = "rgba(92, 214, 255," + (0.08 - ring * 0.012) + ")"
-                ctx.beginPath()
-                ctx.ellipse(width * 0.5, height * 0.43,
-                            88 + ring * 56, 88 + ring * 56, 0, 0, Math.PI * 2)
-                ctx.stroke()
+            ctx.strokeStyle = Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.035)
+            for (let x = 0; x < width; x += 64) {
+                ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, height); ctx.stroke()
+            }
+            for (let y = 0; y < height; y += 64) {
+                ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(width, y); ctx.stroke()
             }
         }
 
         onWidthChanged: requestPaint()
         onHeightChanged: requestPaint()
+        Connections { target: Theme; function onStyleNameChanged() { ambience.requestPaint() } }
     }
 
     VideoOutput {
@@ -140,51 +143,65 @@ GlassPanel {
         anchors.fill: parent
         visible: !root.fullscreenMode && !player.hasMedia
 
+        Row {
+            anchors.left: parent.left; anchors.top: parent.top; anchors.margins: 22
+            spacing: 8
+            Rectangle { anchors.verticalCenter: parent.verticalCenter; width: 5; height: 5; radius: 2.5; color: Theme.cyan }
+            Text { text: "YOUR SCREENING ROOM"; color: Theme.textMuted; font.pixelSize: 9 * Theme.fontScale; font.letterSpacing: 1.8 }
+        }
+
         ColumnLayout {
             anchors.centerIn: parent
-            width: Math.min(480, parent.width - 80)
-            spacing: 16
+            width: Math.min(530, parent.width - 48)
+            spacing: 14
 
-            Rectangle {
+            Item {
                 Layout.alignment: Qt.AlignHCenter
-                width: 78
-                height: 78
-                radius: 24
-                color: "#145CD6FF"
-                border.width: 1
-                border.color: "#385CD6FF"
+                Layout.bottomMargin: 6
+                width: 220
+                height: 108
 
                 Rectangle {
-                    anchors.centerIn: parent
-                    width: 38
-                    height: 38
-                    radius: 13
-                    rotation: 45
-                    color: Theme.cyan
-                    opacity: 0.92
+                    x: 12; y: 27; width: 108; height: 72; radius: 12; rotation: -14
+                    color: Qt.rgba(Theme.violet.r, Theme.violet.g, Theme.violet.b, 0.10)
+                    border.width: 1; border.color: Qt.rgba(Theme.violet.r, Theme.violet.g, Theme.violet.b, 0.22)
+                }
+                Rectangle {
+                    x: 110; y: 24; width: 98; height: 70; radius: 12; rotation: 13
+                    color: Qt.rgba(Theme.amber.r, Theme.amber.g, Theme.amber.b, 0.09)
+                    border.width: 1; border.color: Qt.rgba(Theme.amber.r, Theme.amber.g, Theme.amber.b, 0.20)
+                }
+                Rectangle {
+                    anchors.centerIn: parent; width: 144; height: 88; radius: 14
+                    color: Theme.surfaceRaised
+                    border.width: 1; border.color: Qt.rgba(Theme.cyan.r, Theme.cyan.g, Theme.cyan.b, 0.35)
 
                     Rectangle {
-                        anchors.centerIn: parent
-                        width: 17
-                        height: 17
-                        radius: 6
-                        color: Theme.violet
+                        anchors.centerIn: parent; width: 42; height: 42; radius: 21
+                        color: Qt.rgba(Theme.cyan.r, Theme.cyan.g, Theme.cyan.b, 0.12)
+                        VectorIcon { anchors.centerIn: parent; glyph: "\u25B6"; ink: Theme.cyan; width: 18; height: 18 }
+                    }
+                    Rectangle { x: 12; y: 72; width: 120; height: 2; radius: 1; color: Theme.borderSoft
+                        Rectangle { width: 42; height: 2; radius: 1; color: Theme.cyan }
                     }
                 }
             }
 
             Text {
                 Layout.fillWidth: true
-                text: "Your media, beautifully extended."
+                text: "Every frame.\nA little more extraordinary."
                 color: Theme.text
                 horizontalAlignment: Text.AlignHCenter
-                font.pixelSize: Theme.fontScale * 25
+                font.pixelSize: Theme.fontScale * (root.width < 640 ? 30 : 38)
                 font.weight: Font.DemiBold
+                font.letterSpacing: -1.1
+                lineHeight: 1.12
+                wrapMode: Text.WordWrap
             }
 
             Text {
                 Layout.fillWidth: true
-                text: "Drop a video, audio file, or image here. Andiya keeps powerful tools close and the experience quiet."
+                text: "Watch, explore, and perfect your media.\nDrop a file here to get started."
                 color: Theme.textSecondary
                 horizontalAlignment: Text.AlignHCenter
                 wrapMode: Text.WordWrap
@@ -199,38 +216,37 @@ GlassPanel {
 
                 IconButton {
                     glyph: "+"
-                    label: "Open media"
-                    buttonSize: 42
+                    label: "Open a file"
+                    buttonSize: 44
                     prominent: true
                     onClicked: root.openRequested()
                 }
 
                 IconButton {
-                    glyph: "\u25C7"
-                    label: "Explore tools"
-                    buttonSize: 42
-                    active: true
-                    accentColor: Theme.violet
-                    onClicked: root.pluginsRequested()
-                }
-
-                IconButton {
                     glyph: "\u21AF"
-                    label: "Network stream"
+                    label: "Open a stream"
                     toolTip: "Open an RTSP/RTMP/HTTP stream URL"
-                    buttonSize: 42
+                    buttonSize: 44
+                    active: true
                     accentColor: Theme.cyan
                     onClicked: root.networkStreamRequested()
                 }
             }
 
-            Text {
+            Row {
                 Layout.alignment: Qt.AlignHCenter
-                Layout.topMargin: 8
-                text: "MP4  /  MKV  /  MP3  /  FLAC  /  PNG  /  JPEG  /  WEBP"
-                color: Theme.textMuted
-                font.pixelSize: Theme.fontScale * 10
-                font.letterSpacing: 1.2
+                Layout.topMargin: 4
+                spacing: 8
+                Repeater {
+                    model: ["Video", "Audio", "Images"]
+                    Rectangle {
+                        required property string modelData
+                        width: formatLabel.implicitWidth + 22; height: 25; radius: 12
+                        color: Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.04)
+                        border.width: 1; border.color: Theme.borderSoft
+                        Text { id: formatLabel; anchors.centerIn: parent; text: modelData; color: Theme.textSecondary; font.pixelSize: 10 * Theme.fontScale }
+                    }
+                }
             }
 
             RowLayout {
@@ -248,7 +264,7 @@ GlassPanel {
                     Text { anchors.centerIn: parent; text: "?"; color: Theme.textSecondary; font.pixelSize: Theme.fontScale * 10; font.weight: Font.DemiBold }
                 }
                 Text {
-                    text: "for every keyboard shortcut"
+                    text: "Shortcuts at your fingertips"
                     color: Theme.textMuted
                     font.pixelSize: Theme.fontScale * 10
                 }

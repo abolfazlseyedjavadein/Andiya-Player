@@ -7,6 +7,7 @@
 #include <QVariantList>
 #include <QVector>
 #include <QVideoFrame>
+#include "AudioPlaybackBuffer.h"
 
 class QAudioBuffer;
 class QAudioBufferOutput;
@@ -246,6 +247,7 @@ private:
     QVideoFrame m_currentFrame;
     QVideoFrame m_previousCandidate;
     bool m_previewBusy = false;
+    bool m_previewPending = false;
     bool m_compareBusy=false,m_comparePending=false,m_imageBusy=false,m_imagePending=false;
     bool m_liveFilters = true;
     quint64 m_generation = 0;
@@ -267,6 +269,8 @@ private:
     void refreshAudioDevice();
     void restartAudioSink();
     void handleAudioBuffer(const QAudioBuffer &buffer);
+    void drainAudio();
+    void openMediaInternal(const QUrl &url, int playlistIndex);
     void refreshImagePreview();
     void captureFrameInternal(bool applyFilters);
     void updateCompareImages();
@@ -287,6 +291,8 @@ private:
     QAudioBufferOutput *m_audioBufferOutput = nullptr;
     QAudioSink *m_audioSink = nullptr;
     QIODevice *m_audioSinkDevice = nullptr;
+    AudioPlaybackBuffer m_audioBuffer;
+    QTimer *m_audioDrainTimer = nullptr;
     QTimer *m_resumeTimer = nullptr;
     PluginListModel *m_plugins = nullptr;
     QPointer<QVideoSink> m_videoSink;
@@ -313,7 +319,7 @@ private:
     QVariantList m_subtitleTracks;
     QVariantList m_recentMedia;
     QVariantList m_playlist;
-    QString m_themeName = QStringLiteral("Aurora Glass");
+    QString m_themeName = QStringLiteral("Studio Noir");
     qint64 m_pendingResumePosition = 0;
     int m_playlistIndex = -1;
     int m_subtitleDelayMs = 0;

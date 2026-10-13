@@ -5,7 +5,7 @@ Rectangle {
 
     property color panelColor: Theme.surface
     property color strokeColor: Theme.borderSoft
-    property real panelOpacity: 0.94
+    property real panelOpacity: 1.0
 
     color: Qt.rgba(panelColor.r, panelColor.g, panelColor.b, panelOpacity)
     radius: Theme.radiusLarge
@@ -19,6 +19,6 @@ Rectangle {
         anchors.margins: 1
         height: 1
         radius: parent.radius
-        color: Theme.light ? "#16000000" : "#18FFFFFF"
+        color: Theme.light ? "#08FFFFFF" : "#0AFFFFFF"
     }
 }

@@ -91,6 +91,7 @@ jobs:
     permissions:
       contents: write
     steps:
+      - uses: actions/checkout@v4
       - uses: actions/download-artifact@v4
         with:
           name: Andiya-Windows
@@ -111,11 +112,4 @@ jobs:
           allowUpdates: true
           replacesArtifacts: true
           omitNameDuringUpdate: true
-          body: |
-            CI-built packages for Windows, macOS, and Linux.
-
-            - **Windows:** portable ZIP and per-user NSIS installer (`-setup.exe`). Binaries are unsigned.
-            - **macOS:** ad-hoc signed `.dmg` for Apple Silicon. Gatekeeper will warn until Developer ID signing and notarization.
-            - **Linux:** `.tar.gz` and `.deb` for x86_64 (glibc 2.35+).
-
-            These packages were produced by the same setup helper used for local packaging on windows-2022, ubuntu-22.04, and macos-14.
+          bodyFile: docs/releases/${{ github.ref_name }}.md

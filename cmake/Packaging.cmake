@@ -50,6 +50,8 @@ install(FILES include/andiya/plugin_api.h DESTINATION "${ANDIYA_DATA_DIR}/sdk/in
 install(FILES tools/package_plugin.py DESTINATION "${ANDIYA_DATA_DIR}/sdk/tools")
 install(FILES assets/andiya-icon.png assets/andiya.ico DESTINATION "${ANDIYA_DATA_DIR}/icons")
 install(FILES LICENSE README.md PLUGIN_DEVELOPMENT.md THIRD_PARTY.md DESTINATION "${ANDIYA_DATA_DIR}")
+install(FILES third_party/signalsmith/LICENSE-stretch.txt third_party/signalsmith/LICENSE-linear.txt
+    DESTINATION "${ANDIYA_DATA_DIR}/licenses")
 install(DIRECTORY docs/ DESTINATION "${ANDIYA_DATA_DIR}/docs")
 
 if(ANDIYA_DEPLOY_RUNTIME)

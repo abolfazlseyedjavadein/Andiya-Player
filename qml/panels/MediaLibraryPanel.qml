@@ -8,6 +8,7 @@ GlassPanel {
     property string mode: "Library"
     signal addFilesRequested()
     signal openRequested()
+    signal closeRequested()
 
     readonly property var sourceModel: mode === "Playlist" ? player.playlist : player.recentMedia
 
@@ -15,20 +16,21 @@ GlassPanel {
 
     ColumnLayout {
         anchors.fill: parent
-        anchors.margins: 16
-        spacing: 12
+        anchors.margins: 18
+        spacing: 16
 
         RowLayout {
             Layout.fillWidth: true
 
             ColumnLayout {
                 Layout.fillWidth: true
-                spacing: 1
+                spacing: 5
 
                 Text {
                     text: root.mode
                     color: Theme.text
-                    font.pixelSize: Theme.fontScale * 21
+                    font.pixelSize: Theme.fontScale * 23
+                    font.letterSpacing: -0.5
                     font.weight: Font.DemiBold
                 }
 
@@ -36,7 +38,7 @@ GlassPanel {
                     text: root.mode === "Playlist" ? player.playlist.length + " queued items"
                                                      : player.recentMedia.length + " recent items"
                     color: Theme.textMuted
-                    font.pixelSize: Theme.fontScale * 9
+                    font.pixelSize: Theme.fontScale * 11
                 }
             }
 
@@ -47,11 +49,18 @@ GlassPanel {
                 buttonSize: 34
                 onClicked: root.mode === "Playlist" ? root.addFilesRequested() : root.openRequested()
             }
+            IconButton {
+                objectName: "libraryCloseButton"
+                glyph: "\u00D7"
+                toolTip: "Close " + root.mode.toLowerCase()
+                buttonSize: 30
+                onClicked: root.closeRequested()
+            }
         }
 
         Rectangle {
             Layout.fillWidth: true
-            implicitHeight: 36
+            implicitHeight: 40
             radius: 10
             color: Theme.backgroundSoft
             border.width: 1
@@ -67,10 +76,10 @@ GlassPanel {
                 TextField {
                     id: search
                     Layout.fillWidth: true
-                    placeholderText: "Filter media"
+                    placeholderText: "Search your library"
                     color: Theme.text
                     placeholderTextColor: Theme.textMuted
-                    font.pixelSize: Theme.fontScale * 10
+                    font.pixelSize: Theme.fontScale * 12
                     background: Item {}
                 }
             }
@@ -96,11 +105,11 @@ GlassPanel {
                     || modelData.title.toLowerCase().includes(search.text.toLowerCase())
 
                 width: mediaList.width
-                height: matches ? 66 : 0
+                height: matches ? 76 : 0
                 visible: matches
                 radius: 12
                 color: hover.hovered || (root.mode === "Playlist" && player.playlistIndex === index)
-                       ? Theme.surfaceHover : Theme.surfaceRaised
+                       ? Theme.surfaceHover : "transparent"
                 border.width: root.mode === "Playlist" && player.playlistIndex === index ? 1 : 0
                 border.color: Theme.cyan
                 clip: true
@@ -112,8 +121,8 @@ GlassPanel {
 
                     Rectangle {
                         id: thumbFrame
-                        width: 44
-                        height: 48
+                        width: 48
+                        height: 54
                         radius: 9
                         clip: true
 
@@ -155,9 +164,9 @@ GlassPanel {
                         Text {
                             anchors.centerIn: parent
                             visible: thumbFrame.thumbUrl.length === 0
-                            text: modelData.kind === "Audio" ? "AUD" : (modelData.kind === "Image" ? "IMG" : "PLAY")
+                            text: modelData.kind === "Audio" ? "\u266A" : (modelData.kind === "Image" ? "\u25A7" : "\u25B6")
                             color: Theme.text
-                            font.pixelSize: Theme.fontScale * 8
+                            font.pixelSize: Theme.fontScale * 18
                             font.weight: Font.Bold
                         }
 
@@ -182,7 +191,7 @@ GlassPanel {
                             Layout.fillWidth: true
                             text: modelData.title
                             color: Theme.text
-                            font.pixelSize: Theme.fontScale * 11
+                            font.pixelSize: Theme.fontScale * 12
                             font.weight: Font.Medium
                             elide: Text.ElideMiddle
                         }
@@ -193,7 +202,7 @@ GlassPanel {
                                   ? (player.playlistIndex === index ? "NOW PLAYING" : "IN QUEUE")
                                   : (modelData.opened || modelData.kind)
                             color: player.playlistIndex === index ? Theme.cyan : Theme.textMuted
-                            font.pixelSize: Theme.fontScale * 8
+                            font.pixelSize: Theme.fontScale * 10
                             elide: Text.ElideRight
                         }
                     }
@@ -218,9 +227,13 @@ GlassPanel {
             Text {
                 anchors.centerIn: parent
                 visible: mediaList.count === 0
-                text: root.mode === "Playlist" ? "Your playlist is empty" : "Open media to build your history"
+                width: parent.width - 24
+                horizontalAlignment: Text.AlignHCenter
+                wrapMode: Text.WordWrap
+                text: root.mode === "Playlist" ? "Your next watch starts here.\nAdd a few files to your playlist." : "Your collection starts here.\nOpen a file to make it yours."
                 color: Theme.textMuted
-                font.pixelSize: Theme.fontScale * 11
+                font.pixelSize: Theme.fontScale * 12
+                lineHeight: 1.6
             }
         }
 

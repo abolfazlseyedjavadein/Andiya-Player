@@ -12,7 +12,26 @@ Dialog {
     anchors.centerIn: parent
     modal: true
     standardButtons: Dialog.Close
-    background: Rectangle { color: Theme.background; radius: 16; border.color: Theme.border }
+    background: Rectangle { color: Theme.surface; radius: 20; border.color: Theme.borderSoft }
+    header: Item {
+        implicitHeight: 78
+        Column {
+            anchors.left: parent.left; anchors.leftMargin: 22
+            anchors.verticalCenter: parent.verticalCenter
+            spacing: 4
+            Text { text: "Workspace"; color: Theme.text; font.pixelSize: 22 * Theme.fontScale; font.weight: Font.DemiBold; font.letterSpacing: -0.5 }
+            Text { text: "Your media. Your workflow."; color: Theme.textSecondary; font.pixelSize: 11 * Theme.fontScale }
+        }
+    }
+    footer: Item {
+        implicitHeight: 60
+        IconButton {
+            anchors.right: parent.right; anchors.rightMargin: 20
+            anchors.verticalCenter: parent.verticalCenter
+            label: "Done"; buttonSize: 36; prominent: true
+            onClicked: root.close()
+        }
+    }
     property string message: ""
     contentItem: ColumnLayout {
         spacing: 12
@@ -21,7 +40,23 @@ Dialog {
             objectName: "workspaceTabs"
             Layout.fillWidth: true
             Repeater { model: ["Bookmarks", "Export", "Filters", "Streams", "Diagnostics", "Preferences"]
-                TabButton { required property string modelData; text: modelData }
+                TabButton {
+                    required property string modelData
+                    text: modelData
+                    implicitHeight: 42
+                    background: Rectangle {
+                        radius: 10
+                        color: parent.checked ? Theme.cyan : (parent.hovered ? Theme.surfaceHover : Theme.surfaceRaised)
+                    }
+                    contentItem: Text {
+                        text: parent.text
+                        color: parent.checked ? Theme.accentInk : Theme.textSecondary
+                        font.pixelSize: 13 * Theme.fontScale
+                        font.weight: Font.DemiBold
+                        horizontalAlignment: Text.AlignHCenter; verticalAlignment: Text.AlignVCenter
+                        elide: Text.ElideRight
+                    }
+                }
             }
         }
         ScrollView {
@@ -233,7 +268,7 @@ Dialog {
                             objectName: "workspaceThemePicker"
                             Layout.fillWidth: true
                             Accessible.name: "Theme"
-                            model: ["Aurora Glass", "Midnight", "Graphite", "Ember", "Pearl",
+                            model: ["Studio Noir", "Aurora Glass", "Midnight", "Graphite", "Ember", "Pearl",
                                     "Daylight Blue", "Rose Bloom", "Neon Gamer", "Warm Sunset",
                                     "Nordic Frost", "Synthwave", "Deep Jade"]
                             currentIndex: Math.max(0, model.indexOf(Theme.styleName))

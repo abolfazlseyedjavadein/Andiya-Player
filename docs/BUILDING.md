@@ -114,7 +114,11 @@ See [packaging](PACKAGING.md) for install paths and platform-specific limits.
 
 The easiest complete check is to rerun setup with `--verify` and the Qt prefix.
 It supplies Qt's offscreen platform plugin, generates deterministic media,
-runs 15 integration groups and plugin regressions, and creates seven UI snapshots.
+runs integration checks and plugin regressions, and creates nine UI snapshots,
+including the Studio Noir welcome screen and the compact Pearl theme.
+The integration checks include audio speed and partial-write handling, playlist
+selection and slow paused previews. Source builds with `BUILD_TESTING=ON` also
+build a failing native filter fixture to check error propagation and export rejection.
 
 To verify an existing development stage from a source checkout:
 

@@ -42,7 +42,12 @@ int main(int argc, char **argv) {
         auto bytes=exact(input,qsizetype(size)); if(bytes.size()!=qsizetype(size)) return 6;
         QImage image(reinterpret_cast<const uchar *>(bytes.constData()),int(w),int(h),int(stride),QImage::Format_ARGB32);
         auto result=host.applyOne(id,image,timestamp).convertToFormat(QImage::Format_ARGB32);
-        if(result.isNull() || result.size()!=image.size()) return 7;
+        if(result.isNull() || result.size()!=image.size()) {
+            QByteArray response; QDataStream out(&response,QIODevice::WriteOnly);
+            out.setByteOrder(QDataStream::LittleEndian);
+            out<<quint32(0x414e5253)<<qint32(-1)<<w<<h<<stride<<format<<quint64(0);
+            output.write(response);output.flush();return 7;
+        }
         QByteArray response; QDataStream out(&response,QIODevice::WriteOnly);
         out.setByteOrder(QDataStream::LittleEndian);
         out<<quint32(0x414e5253)<<qint32(0)<<w<<h<<quint32(result.bytesPerLine())<<quint32(1)<<quint64(result.sizeInBytes());

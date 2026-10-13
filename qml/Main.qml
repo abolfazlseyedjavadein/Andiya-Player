@@ -18,6 +18,7 @@ ApplicationWindow {
            | Qt.WindowMaximizeButtonHint | Qt.WindowCloseButtonHint
 
     font.pixelSize: 14 * studio.textScale
+    font.family: Theme.fontFamily
     palette.window: Theme.background
     palette.windowText: Theme.text
     palette.base: Theme.surface
@@ -42,6 +43,10 @@ ApplicationWindow {
     }
 
     function openLibraryPanel(mode) {
+        if (libraryOpen && libraryMode === mode) {
+            libraryOpen = false
+            return
+        }
         libraryMode = mode
         libraryOpen = true
         if (!dualSidebars) {
@@ -115,7 +120,7 @@ ApplicationWindow {
         color: window.visibility === Window.FullScreen ? "#000000"
                                                      : Qt.rgba(Theme.background.r, Theme.background.g, Theme.background.b, 0.96)
         border.width: window.visibility === Window.FullScreen ? 0 : 1
-        border.color: Theme.border
+        border.color: Theme.borderSoft
         clip: true
 
         Item {
@@ -123,13 +128,13 @@ ApplicationWindow {
             anchors.left: parent.left
             anchors.right: parent.right
             anchors.top: parent.top
-            height: window.visibility === Window.FullScreen ? 0 : 66
+            height: window.visibility === Window.FullScreen ? 0 : 72
             visible: height > 0
             clip: true
 
             Rectangle {
                 anchors.fill: parent
-                color: Qt.rgba(Theme.surface.r, Theme.surface.g, Theme.surface.b, 0.76)
+                color: Theme.background
                 border.width: 0
 
                 Rectangle {
@@ -150,10 +155,10 @@ ApplicationWindow {
                 Rectangle {
                     width: 36
                     height: 36
-                    radius: 10
+                    radius: 12
                     gradient: Gradient {
-                        GradientStop { position: 0; color: Theme.cyan }
-                        GradientStop { position: 1; color: Theme.violet }
+                        GradientStop { position: 0; color: Theme.surfaceRaised }
+                        GradientStop { position: 1; color: Theme.surface }
                     }
 
                     Image {
@@ -165,20 +170,20 @@ ApplicationWindow {
                     }
                 }
 
-                Row {
-                    spacing: 4
+                Column {
+                    spacing: 1
                     Text {
-                        text: "ANDIYA"
-                        color: Theme.cyan
-                        font.pixelSize: Theme.fontScale * 16
-                        font.weight: Font.Bold
-                        anchors.verticalCenter: parent.verticalCenter
+                        text: "Andiya"
+                        color: Theme.text
+                        font.pixelSize: Theme.fontScale * 21
+                        font.weight: Font.DemiBold
+                        font.letterSpacing: -0.7
                     }
                     Text {
-                        text: "Player"
-                        color: Theme.text
-                        font.pixelSize: Theme.fontScale * 16
-                        anchors.verticalCenter: parent.verticalCenter
+                        text: "MEDIA STUDIO"
+                        color: Theme.textMuted
+                        font.pixelSize: Theme.fontScale * 8
+                        font.letterSpacing: 1.8
                     }
                 }
 
@@ -192,10 +197,10 @@ ApplicationWindow {
                         anchors.left: parent.left
                         anchors.right: parent.right
                         anchors.verticalCenter: parent.verticalCenter
-                        text: player.hasMedia ? "Filename:  " + player.title
-                                              : "Open video, audio or images"
+                        text: player.hasMedia ? player.title
+                                              : "A little space for your favorite media."
                         color: Theme.textSecondary
-                        font.pixelSize: Theme.fontScale * 10
+                        font.pixelSize: Theme.fontScale * 12
                         elide: Text.ElideMiddle
                     }
 
@@ -214,7 +219,7 @@ ApplicationWindow {
                     glyph: "+"
                     label: "Open"
                     active: true
-                    buttonSize: 36
+                    buttonSize: 38
                     onClicked: openDialog.open()
                 }
 
@@ -291,20 +296,21 @@ ApplicationWindow {
             anchors.right: parent.right
             anchors.top: titleBar.bottom
             anchors.bottom: parent.bottom
-            anchors.margins: window.visibility === Window.FullScreen ? 0 : 10
-            spacing: window.visibility === Window.FullScreen ? 0 : 10
+            anchors.margins: window.visibility === Window.FullScreen ? 0 : 12
+            spacing: window.visibility === Window.FullScreen ? 0 : 12
 
             GlassPanel {
                 id: navRail
                 visible: window.visibility !== Window.FullScreen
                 Layout.fillHeight: true
                 Layout.preferredWidth: 76
-                panelColor: Theme.surface
+                panelColor: Theme.background
+                strokeColor: Theme.background
 
                 ColumnLayout {
                     anchors.fill: parent
                     anchors.margins: 7
-                    spacing: 5
+                    spacing: 4
 
                     NavRailButton {
                         glyph: "LIB"
@@ -374,6 +380,7 @@ ApplicationWindow {
                 mode: window.libraryMode
                 onOpenRequested: openDialog.open()
                 onAddFilesRequested: playlistDialog.open()
+                onCloseRequested: window.libraryOpen = false
             }
 
             ColumnLayout {
@@ -385,7 +392,7 @@ ApplicationWindow {
                 // any overflow) if the window is ever squeezed too tight.
                 Layout.minimumWidth: 520
                 clip: true
-                spacing: window.visibility === Window.FullScreen ? 0 : 9
+                spacing: window.visibility === Window.FullScreen ? 0 : 12
 
                 MediaStage {
                     id: mediaStage

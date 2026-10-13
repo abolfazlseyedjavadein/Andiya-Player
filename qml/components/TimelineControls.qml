@@ -6,11 +6,12 @@ GlassPanel {
     id: root
 
     property var hostWindow
+    readonly property bool compact: width < 760
     signal subtitleRequested()
     signal audioOptionsRequested()
     signal networkStreamRequested()
 
-    implicitHeight: 108
+    implicitHeight: 112
     panelColor: Theme.surface
 
     ColumnLayout {
@@ -34,9 +35,9 @@ GlassPanel {
                 x: timeline.leftPadding
                 y: timeline.topPadding + timeline.availableHeight / 2 - height / 2
                 width: timeline.availableWidth
-                height: 4
-                radius: 2
-                color: Theme.border
+                height: 5
+                radius: 2.5
+                color: Theme.borderSoft
 
                 Rectangle {
                     width: timeline.visualPosition * parent.width
@@ -45,7 +46,7 @@ GlassPanel {
                     gradient: Gradient {
                         orientation: Gradient.Horizontal
                         GradientStop { position: 0; color: Theme.cyan }
-                        GradientStop { position: 1; color: Theme.violet }
+                        GradientStop { position: 1; color: Theme.cyan }
                     }
                 }
             }
@@ -71,6 +72,7 @@ GlassPanel {
 
             IconButton {
                 glyph: "\u23EE"
+                visible: !root.compact
                 toolTip: "Previous playlist item"
                 enabled: player.playlist.length > 0
                 onClicked: player.playPreviousPlaylistItem()
@@ -87,6 +89,7 @@ GlassPanel {
 
             IconButton {
                 glyph: "\u23ED"
+                visible: !root.compact
                 toolTip: "Next playlist item"
                 enabled: player.playlist.length > 0
                 onClicked: player.playNextPlaylistItem()
@@ -100,7 +103,7 @@ GlassPanel {
 
             Slider {
                 id: volumeSlider
-                Layout.preferredWidth: 94
+                Layout.preferredWidth: root.compact ? 64 : 94
                 from: 0
                 to: 2
                 value: player.volume
@@ -170,21 +173,21 @@ GlassPanel {
                     text: player.isLiveStream ? TimeFormat.time(player.position)
                                               : TimeFormat.time(player.position) + " / " + TimeFormat.time(player.duration)
                     color: Theme.text
-                    font.pixelSize: Theme.fontScale * 12
+                    font.pixelSize: Theme.fontScale * 13
                     font.weight: Font.DemiBold
                 }
                 Text {
                     Layout.alignment: Qt.AlignHCenter
-                    text: player.hasMedia ? player.statusText : "Current / Total"
+                    text: player.hasMedia ? player.statusText : "Ready when you are"
                     color: Theme.textMuted
-                    font.pixelSize: Theme.fontScale * 8
+                    font.pixelSize: Theme.fontScale * 9
                 }
             }
 
             Item { Layout.fillWidth: true }
 
-            IconButton { glyph: "-10"; toolTip: "Back 10 seconds"; enabled: player.hasMedia && !player.imageMode; onClicked: player.jumpSeconds(-10) }
-            IconButton { glyph: "+10"; toolTip: "Forward 10 seconds"; enabled: player.hasMedia && !player.imageMode; onClicked: player.jumpSeconds(10) }
+            IconButton { glyph: "-10"; visible: !root.compact; toolTip: "Back 10 seconds"; enabled: player.hasMedia && !player.imageMode; onClicked: player.jumpSeconds(-10) }
+            IconButton { glyph: "+10"; visible: !root.compact; toolTip: "Forward 10 seconds"; enabled: player.hasMedia && !player.imageMode; onClicked: player.jumpSeconds(10) }
 
             IconButton {
                 glyph: "CMP"
@@ -215,6 +218,12 @@ GlassPanel {
     // usable at the app's minimum window width even with a side panel open.
     ThemedMenu {
         id: overflowMenu
+
+        ThemedMenuItem { visible: root.compact; text: "Previous playlist item"; enabled: player.playlist.length > 0; onTriggered: player.playPreviousPlaylistItem() }
+        ThemedMenuItem { visible: root.compact; text: "Next playlist item"; enabled: player.playlist.length > 0; onTriggered: player.playNextPlaylistItem() }
+        ThemedMenuItem { visible: root.compact; text: "Back 10 seconds"; enabled: player.hasMedia && !player.imageMode; onTriggered: player.jumpSeconds(-10) }
+        ThemedMenuItem { visible: root.compact; text: "Forward 10 seconds"; enabled: player.hasMedia && !player.imageMode; onTriggered: player.jumpSeconds(10) }
+        ThemedMenuSeparator { visible: root.compact }
 
         ThemedMenuItem {
             text: "Previous frame (,)"

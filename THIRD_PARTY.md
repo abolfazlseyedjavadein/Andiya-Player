@@ -4,6 +4,11 @@ Andiya's own code, public plugin SDK and examples are covered by [MIT](LICENSE).
 Third-party plugins may use their own licenses, including commercial licenses.
 The main player does not require a paid plugin.
 
+Pitch-preserving playback uses the MIT-licensed [Signalsmith Stretch](https://github.com/Signalsmith-Audio/signalsmith-stretch)
+and [Signalsmith Linear](https://github.com/Signalsmith-Audio/linear) headers.
+Pinned revisions and original license texts are in `third_party/signalsmith`;
+the license texts are included in installed packages.
+
 Packaged builds use dynamically linked Qt 6 (Core, GUI, Network, QML, Quick,
 Quick Controls, Multimedia and their runtime plugins). Qt and its bundled
 dependencies retain their original licenses; Andiya's MIT license does not

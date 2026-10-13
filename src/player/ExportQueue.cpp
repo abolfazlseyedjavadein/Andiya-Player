@@ -46,6 +46,9 @@ void ExportQueue::save(QImage image,QString path,std::function<void(bool)> done)
 }
 void ExportQueue::next() {
     if(!m_running)return;
+    // stop() can emit LoadedMedia and pending frames from the previous decoder.
+    // Invalidate its callbacks before stopping it or preparing the next item.
+    ++m_generation;m_waiting=false;m_timeout->stop();
     if(m_decoder){m_decoder->stop();m_decoder->deleteLater();m_decoder=nullptr;}
     if(m_sink){m_sink->deleteLater();m_sink=nullptr;}
     if(m_index==m_items.size()) {
@@ -81,10 +84,11 @@ void ExportQueue::next() {
         } else if(status==QMediaPlayer::EndOfMedia&&m_waiting)finish("The requested export position is beyond the last frame.");
     });
     connect(m_sink,&QVideoSink::videoFrameChanged,this,[this,generation,item](const QVideoFrame &frame){
-        if(generation!=m_generation||!m_waiting||!frame.isValid())return;
+        if(generation!=m_generation||!m_waiting||!m_decoder||!frame.isValid())return;
         const auto target=item.value("position").toLongLong()*1000;
         if(frame.startTime()<0 || (frame.startTime()<target && frame.endTime()<=target))return;
         m_waiting=false;m_timeout->stop();m_decoder->pause();
+        if(generation!=m_generation||!m_running)return;
         consume(frame.toImage(),qMax<qint64>(0,frame.startTime()/1000));
     });
     m_timeout->start();m_decoder->setSource(url);

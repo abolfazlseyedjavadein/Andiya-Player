@@ -35,6 +35,7 @@ public:
     // Runs only the named filter (if loaded and enabled), letting the caller
     // (PluginListModel) drive the overall pipeline order across both native
     // and Python filters, e.g. for the reorderable "filter graph" UI.
+    // A null result indicates a processing error, which the worker reports to the host.
     [[nodiscard]] QImage applyOne(const QString &id, const QImage &source, qint64 timestampUs = 0) const;
 
 private:

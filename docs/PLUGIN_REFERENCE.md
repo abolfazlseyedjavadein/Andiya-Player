@@ -1,6 +1,6 @@
 # Plugin reference
 
-This describes the current Andiya 0.1.4 implementation. Start with the
+This describes the current Andiya 0.1.5 implementation. Start with the
 [creation tutorial](../PLUGIN_DEVELOPMENT.md) for complete runnable examples.
 
 ## Manifest

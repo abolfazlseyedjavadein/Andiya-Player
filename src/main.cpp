@@ -77,17 +77,44 @@ int main(int argc, char *argv[])
     if(uiSmoke && !engine.rootObjects().isEmpty()) {
         const QString directory=app.arguments()[2];QDir().mkpath(directory);
         auto *window=qobject_cast<QQuickWindow *>(engine.rootObjects().first());
-        QTimer::singleShot(300,window,[window,directory,&studio]{
+        auto *theme=engine.singletonInstance<QObject *>("Andiya","Theme");
+        QTimer::singleShot(300,window,[window,directory,&studio,theme]{
             auto *dialog=window->findChild<QObject *>("workspaceDialog");
             auto *tabs=window->findChild<QObject *>("workspaceTabs");
-            if(!dialog||!tabs){QCoreApplication::exit(3);return;}
+            if(!dialog||!tabs||!theme){QCoreApplication::exit(3);return;}
+            auto togglePanel=[window](const QString &mode){
+                return QMetaObject::invokeMethod(window,"openLibraryPanel",Q_ARG(QVariant,QVariant(mode)));
+            };
+            togglePanel("Library");
+            if(window->property("libraryOpen").toBool()){QCoreApplication::exit(4);return;}
+            for(const QString mode:{"Library","History","Playlist"}){
+                if(!togglePanel(mode)||!window->property("libraryOpen").toBool()||window->property("libraryMode").toString()!=mode){QCoreApplication::exit(4);return;}
+                togglePanel(mode);
+                if(window->property("libraryOpen").toBool()){QCoreApplication::exit(4);return;}
+            }
+            togglePanel("Library");togglePanel("History");
+            auto *closeButton=window->findChild<QObject *>("libraryCloseButton");
+            if(!closeButton||!window->property("libraryOpen").toBool()||window->property("libraryMode").toString()!="History"){
+                QCoreApplication::exit(4);return;
+            }
+            QMetaObject::invokeMethod(closeButton,"clicked");
+            if(window->property("libraryOpen").toBool()){QCoreApplication::exit(4);return;}
+            togglePanel("Library");
+            window->grabWindow().save(directory+"/home-studio-noir.png");
             QMetaObject::invokeMethod(dialog,"open");
             for(int i=0;i<6;++i) {
                 QTimer::singleShot(500+i*350,window,[tabs,i]{tabs->setProperty("currentIndex",i);});
                 QTimer::singleShot(750+i*350,window,[window,directory,i]{window->grabWindow().save(directory+QString("/workspace-%1.png").arg(i));});
             }
             QTimer::singleShot(2850,window,[window,tabs,&studio]{tabs->setProperty("currentIndex",5);window->setWidth(980);studio.setTextScale(1.5);});
-            QTimer::singleShot(3300,window,[window,directory]{window->grabWindow().save(directory+"/workspace-large-text.png");QCoreApplication::quit();});
+            QTimer::singleShot(3300,window,[window,directory,dialog,&studio,theme]{
+                window->grabWindow().save(directory+"/workspace-large-text.png");
+                QMetaObject::invokeMethod(dialog,"close");studio.setTextScale(1.0);
+                theme->setProperty("styleName","Pearl");
+            });
+            QTimer::singleShot(3900,window,[window,directory]{
+                window->grabWindow().save(directory+"/home-pearl-compact.png");QCoreApplication::quit();
+            });
         });
     }
     if (!uiSmoke && app.arguments().size() > 1) {

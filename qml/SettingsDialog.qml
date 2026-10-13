@@ -103,7 +103,7 @@ Popup {
                             ComboBox {
                                 id: stylePicker
                                 Layout.preferredWidth: 200
-                                model: ["Aurora Glass", "Midnight", "Graphite", "Ember", "Pearl",
+                                model: ["Studio Noir", "Aurora Glass", "Midnight", "Graphite", "Ember", "Pearl",
                                         "Daylight Blue", "Rose Bloom", "Neon Gamer", "Warm Sunset",
                                         "Nordic Frost", "Synthwave", "Deep Jade"]
                                 currentIndex: Math.max(0, model.indexOf(Theme.styleName))
@@ -359,7 +359,7 @@ Popup {
         RowLayout {
             Layout.fillWidth: true
             IconButton { glyph: "i"; label: "Creator"; active: true; accentColor: Theme.violet; onClicked: root.creatorRequested() }
-            Text { Layout.fillWidth: true; text: "Andiya 0.1.4  |  Appearance and playback"; color: Theme.textMuted; font.pixelSize: Theme.fontScale * 9; horizontalAlignment: Text.AlignHCenter }
+            Text { Layout.fillWidth: true; text: "Andiya 0.1.5  |  Appearance and playback"; color: Theme.textMuted; font.pixelSize: Theme.fontScale * 9; horizontalAlignment: Text.AlignHCenter }
             IconButton { label: "Done"; prominent: true; buttonSize: 38; onClicked: root.close() }
         }
     }

@@ -4,9 +4,22 @@ import QtQuick
 
 QtObject {
     property real fontScale: studio.textScale
-    property string styleName: "Midnight"
+    property string styleName: "Studio Noir"
+    readonly property string fontFamily: "Segoe UI"
+    readonly property color accentInk: light ? "#FFFFFF" : "#10211E"
 
     readonly property var colors: {
+        if (styleName === "Studio Noir") {
+            return {
+                light: false, background: "#101416", backgroundSoft: "#161D20",
+                surface: "#191F22", surfaceRaised: "#222B2F", surfaceHover: "#2C393D",
+                border: "#3A494D", borderSoft: "#2A3539",
+                text: "#F2F1EB", textSecondary: "#B0BEBD", textMuted: "#839593",
+                cyan: "#A4E5CF", violet: "#A8BCE5", green: "#A4E5CF",
+                amber: "#E6BF8F", red: "#EF9C94",
+                media: "#11191B", mediaTop: "#172526", mediaMiddle: "#121C1E", mediaEnd: "#101719"
+            }
+        }
         if (styleName === "Aurora Glass") {
             return {
                 light: false, background: "#111722", backgroundSoft: "#1A2230",
@@ -160,9 +173,9 @@ QtObject {
     readonly property color mediaGradientMiddle: colors.mediaMiddle
     readonly property color mediaGradientEnd: colors.mediaEnd
 
-    readonly property int radiusSmall: 8
-    readonly property int radius: 13
-    readonly property int radiusLarge: 20
+    readonly property int radiusSmall: 10
+    readonly property int radius: 14
+    readonly property int radiusLarge: 18
     readonly property int animationFast: 120
     readonly property int animation: 190
 }

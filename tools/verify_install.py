@@ -70,10 +70,10 @@ def main():
     results = (output / "results.txt").read_text()
     if "ALL TESTS PASSED" not in results:
         raise RuntimeError(results)
-    if len(list((output / "ui").glob("*.png"))) < 7:
+    if len(list((output / "ui").glob("*.png"))) < 9:
         raise RuntimeError("The workspace smoke test did not produce all screenshots.")
     print(results)
-    print("Installed plugin checks and seven UI snapshots passed:", output)
+    print("Installed plugin checks and nine UI snapshots passed:", output)
 
 if __name__ == "__main__":
     main()

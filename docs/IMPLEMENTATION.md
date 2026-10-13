@@ -5,6 +5,11 @@ plugins remain supported by the public runtime and packaging contract.
 
 ## Playback and exports
 
+Playback speed changes use Signalsmith time stretching with unchanged pitch,
+so faster speech does not acquire a high-pitched voice. Normal speed keeps PCM
+byte exact; other speeds use a short lookahead, retain partial audio writes, and
+flush the processing tail at end of stream. Seeking clears the DSP history.
+
 Frame navigation uses decoded timestamps. Backward navigation decodes a short
 look-behind window and selects the preceding frame; a timeout reports failure
 instead of guessing from the total media duration. Opening another
@@ -55,9 +60,8 @@ access.
 - Public marketplace hosting, billing and commercial AI model packages require
   external providers; the app includes the catalog/bundle client and SDK.
 - Worker permissions are disclosed, not enforced by an OS security sandbox.
-- Native callback errors or invalid output buffers currently fall back to the
-  input inside the native host; an export may therefore continue with an unchanged
-  frame. Crashes, timeouts and malformed worker responses fail the export.
+- Native processing errors, invalid output buffers, crashes and worker timeouts
+  are bypassed during preview and stop filtered exports.
 - Platform metadata does not automatically select or block native catalog packages.
 - Windows releases have been verified locally; macOS/Linux build and packaging
   configuration still needs validation on those systems.

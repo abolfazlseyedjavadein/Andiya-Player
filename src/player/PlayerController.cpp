@@ -105,6 +105,10 @@ PlayerController::PlayerController(PluginListModel *plugins, QObject *parent)
     });
     refreshAudioDevice();
 
+    m_audioDrainTimer = new QTimer(this);
+    m_audioDrainTimer->setInterval(10);
+    connect(m_audioDrainTimer, &QTimer::timeout, this, &PlayerController::drainAudio);
+
     m_resumeTimer = new QTimer(this);
     m_resumeTimer->setInterval(5000);
     connect(m_resumeTimer, &QTimer::timeout, this, &PlayerController::saveResumePosition);
@@ -130,6 +134,11 @@ PlayerController::PlayerController(PluginListModel *plugins, QObject *parent)
         updateTracks();
     });
     connect(m_player, &QMediaPlayer::playbackStateChanged, this, [this] {
+        if (m_audioSink) {
+            if (playing()) m_audioSink->resume();
+            else if (m_player->playbackState() == QMediaPlayer::PausedState) m_audioSink->suspend();
+        }
+        if (!playing()) requestPreview();
         emit playingChanged();
         if (playing()) {
             setStatusText(QStringLiteral("Playing"));
@@ -294,11 +303,20 @@ void PlayerController::attachVideoOutput(QObject *videoOutput)
 
 void PlayerController::openMedia(const QUrl &url)
 {
+    openMediaInternal(url, -1);
+}
+
+void PlayerController::openMediaInternal(const QUrl &url, int playlistIndex)
+{
     if (!url.isValid() || url.isEmpty()) {
         return;
     }
 
     saveResumePosition();
+    if (m_playlistIndex != playlistIndex) {
+        m_playlistIndex = playlistIndex;
+        emit playlistChanged();
+    }
     ++m_generation;++m_compareRevision;m_stepDirection=0;m_stepFreeze=false;m_currentFrame={};m_previousCandidate={};
     m_decodedFrames=m_skippedPreviews=0;m_filterError.clear();clearLoop();exitCompareMode();
     const QString path = url.isLocalFile() ? url.toLocalFile() : url.toString();
@@ -698,9 +716,7 @@ void PlayerController::playPlaylistIndex(int index)
     if (index < 0 || index >= m_playlist.size()) {
         return;
     }
-    m_playlistIndex = index;
-    emit playlistChanged();
-    openMedia(QUrl(m_playlist.at(index).toMap().value(QStringLiteral("url")).toString()));
+    openMediaInternal(QUrl(m_playlist.at(index).toMap().value(QStringLiteral("url")).toString()), index);
 }
 
 void PlayerController::playNextPlaylistItem()
@@ -848,6 +864,8 @@ void PlayerController::clear()
     saveResumePosition();
     ++m_generation;m_stepFreeze=false;m_stepDirection=0;m_currentFrame={};clearLoop();
     m_player->stop();
+    restartAudioSink();
+    if (m_playlistIndex != -1) { m_playlistIndex = -1; emit playlistChanged(); }
     m_player->setSource(QUrl{});
     m_source = QUrl{};
     m_imageSource = QUrl{};
@@ -900,6 +918,7 @@ void PlayerController::updateVideoSize()
 
 void PlayerController::refreshAudioDevice()
 {
+    m_audioBuffer.clear();
     const QAudioDevice device = QMediaDevices::defaultAudioOutput();
     if (device.isNull()) {
         if (m_audioDeviceName != QStringLiteral("No audio output")) {
@@ -953,6 +972,8 @@ void PlayerController::refreshAudioDevice()
 
 void PlayerController::restartAudioSink()
 {
+    m_audioBuffer.clear();
+    if (m_audioDrainTimer) m_audioDrainTimer->stop();
     if (!m_audioSink) {
         refreshAudioDevice();
         return;
@@ -964,7 +985,12 @@ void PlayerController::restartAudioSink()
 
 void PlayerController::handleAudioBuffer(const QAudioBuffer &buffer)
 {
-    if (!buffer.isValid() || !m_audioSinkDevice) {
+    if (!buffer.isValid()) {
+        m_audioBuffer.finish();
+        drainAudio();
+        return;
+    }
+    if (!m_audioSinkDevice || m_stepDirection || m_stepFreeze) {
         return;
     }
 
@@ -1018,9 +1044,18 @@ void PlayerController::handleAudioBuffer(const QAudioBuffer &buffer)
         audioData = boosted.constData();
     }
 
-    const qint64 written = m_audioSinkDevice->write(
-        audioData, static_cast<qint64>(buffer.byteCount()));
-    if (written < 0 && !m_audioErrorReported) {
+    m_audioBuffer.append(QByteArray(audioData, buffer.byteCount()), buffer.format(), playbackRate());
+    drainAudio();
+}
+
+void PlayerController::drainAudio()
+{
+    const bool ok = m_audioBuffer.drain(m_audioSinkDevice);
+    if (m_audioDrainTimer) {
+        if (ok && m_audioSinkDevice && m_audioBuffer.queuedBytes() > 0) m_audioDrainTimer->start();
+        else m_audioDrainTimer->stop();
+    }
+    if (!ok && !m_audioErrorReported) {
         m_audioErrorReported = true;
         emit notification(QStringLiteral("Audio output error"),
                           QStringLiteral("Andiya could not write decoded audio to the output device."));
@@ -1138,7 +1173,7 @@ void PlayerController::loadPersistentState()
     }
     saveRecentMedia();savePlaylist();settings.setValue("library/bookmarks",m_bookmarks);
     m_themeName = settings.value(QStringLiteral("appearance/theme"),
-                                 QStringLiteral("Aurora Glass")).toString();
+                                 QStringLiteral("Studio Noir")).toString();
     m_subtitleDelayMs = settings.value(QStringLiteral("subtitles/delayMs"), 0).toInt();
     m_subtitleFontSize = settings.value(QStringLiteral("subtitles/fontSize"), 18).toInt();
     m_subtitleColor = settings.value(QStringLiteral("subtitles/color"),
@@ -1308,7 +1343,8 @@ void PlayerController::presentFrame(const QVideoFrame &frame) {
 void PlayerController::requestPreview() {
     if(m_imageMode||!m_currentFrame.isValid())return;
     if(!m_liveFilters||!m_plugins->hasEnabledImageFilters()){presentFrame(m_currentFrame);return;}
-    if(m_previewBusy){++m_skippedPreviews;return;}
+    if(m_previewBusy){m_previewPending=true;++m_skippedPreviews;return;}
+    m_previewPending=false;
     m_previewBusy=true;
     const auto frame=m_currentFrame;const auto generation=m_generation;
     auto image=frame.toImage();
@@ -1319,6 +1355,7 @@ void PlayerController::requestPreview() {
         m_filterError=errors.join("; ");
         QVideoFrame filtered(result);filtered.setStartTime(frame.startTime());filtered.setEndTime(frame.endTime());
         presentFrame(filtered);emit diagnosticsChanged();
+        if(m_previewPending)requestPreview();
     });
 }
 void PlayerController::runCapture(QImage frame,qint64 timestamp,bool filtered) {
@@ -1383,5 +1420,5 @@ bool PlayerController::restoreWorkspace(const QVariantMap &data,QString *error) 
     QSettings settings;settings.setValue("library/bookmarks",m_bookmarks);savePlaylist();
     settings.setValue("plugins/presets",data.value("presets").toMap());
     emit bookmarksChanged();emit playlistChanged();m_plugins->reload();emit m_plugins->presetsChanged();
-    setThemeName(data.value("theme","Aurora Glass").toString());return true;
+    setThemeName(data.value("theme","Studio Noir").toString());return true;
 }

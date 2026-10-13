@@ -17,6 +17,8 @@ Rectangle {
     property int buttonSize: 40
 
     readonly property color contentColor: darkSurface ? "#FFFFFF" : Theme.text
+    readonly property color glyphColor: !enabled ? (darkSurface ? "#B8C4D2" : Theme.textSecondary)
+        : (prominent ? Theme.accentInk : (danger && hover.hovered ? Theme.red : (active ? accentColor : contentColor)))
 
     activeFocusOnTab: true
     Accessible.role: Accessible.Button
@@ -28,12 +30,12 @@ Rectangle {
 
     implicitWidth: label.length > 0 ? contentRow.implicitWidth + 24 : buttonSize
     implicitHeight: buttonSize
-    radius: prominent ? buttonSize / 2 : Theme.radiusSmall
+    radius: Theme.radiusSmall
     color: {
         if (!enabled)
             return Theme.light ? "#0A000000" : "#0AFFFFFF"
         if (prominent)
-            return accentColor
+            return hover.hovered ? Qt.lighter(accentColor, 1.07) : accentColor
         if (active)
             return Qt.rgba(accentColor.r, accentColor.g, accentColor.b, 0.14)
         if (hover.hovered)
@@ -43,7 +45,7 @@ Rectangle {
     border.width: activeFocus ? 2 : (active && !prominent ? 1 : 0)
     border.color: activeFocus ? Theme.cyan : Qt.rgba(accentColor.r, accentColor.g, accentColor.b, 0.32)
     opacity: enabled ? 1.0 : 0.42
-    scale: tap.pressed ? 0.94 : 1.0
+    scale: tap.pressed ? 0.97 : 1.0
 
     Behavior on color { ColorAnimation { duration: Theme.animationFast } }
     Behavior on scale { NumberAnimation { duration: Theme.animationFast; easing.type: Easing.OutCubic } }
@@ -53,9 +55,20 @@ Rectangle {
         anchors.centerIn: parent
         spacing: label.length > 0 ? 8 : 0
 
+        VectorIcon {
+            id: vectorIcon
+            glyph: root.glyph
+            visible: supported
+            width: visible ? 20 : 0
+            height: 20
+            anchors.verticalCenter: parent.verticalCenter
+            ink: root.glyphColor
+        }
+
         Text {
             text: root.glyph
-            color: root.prominent ? Theme.background : (root.danger && hover.hovered ? Theme.red : (root.active ? root.accentColor : root.contentColor))
+            visible: !vectorIcon.supported && root.glyph.length > 0
+            color: root.glyphColor
             font.family: root.glyph.length > 2 ? "Segoe UI" : "Segoe UI Symbol"
             font.pixelSize: root.glyph.length > 2 ? 9 : (root.prominent ? 18 : 17)
             font.weight: Font.DemiBold
@@ -65,7 +78,8 @@ Rectangle {
         Text {
             visible: root.label.length > 0
             text: root.label
-            color: root.prominent ? Theme.background : root.contentColor
+            color: !root.enabled ? Theme.textSecondary : (root.prominent ? Theme.accentInk : root.contentColor)
+            font.family: Theme.fontFamily
             font.pixelSize: Theme.fontScale * 13
             font.weight: Font.DemiBold
             anchors.verticalCenter: parent.verticalCenter

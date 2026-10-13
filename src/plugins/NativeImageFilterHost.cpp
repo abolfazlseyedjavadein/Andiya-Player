@@ -166,7 +166,7 @@ QImage NativeImageFilterHost::runFilter(const LoadedFilter &filter, const QImage
     QImage output(current.size(), QImage::Format_ARGB32);
     if (output.isNull()) {
         qWarning() << "Andiya could not allocate a filter output frame for" << filter.id;
-        return current;
+        return {};
     }
 
     AndiyaFrame inputFrame = makeFrame(current, timestampUs);
@@ -184,7 +184,7 @@ QImage NativeImageFilterHost::runFilter(const LoadedFilter &filter, const QImage
     if (!outputValid) {
         qWarning() << "Andiya bypassed filter" << filter.id
                    << "because processing failed or returned an invalid frame:" << result;
-        return current;
+        return {};
     }
     return output;
 }

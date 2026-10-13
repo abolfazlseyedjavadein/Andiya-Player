@@ -1,0 +1,993 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Andiya Internals — Qt, QML, and How the Player Works</title>
+<style>
+  :root {
+    --ink: #1a2430;
+    --muted: #516173;
+    --line: #d5deea;
+    --paper: #ffffff;
+    --tint: #f4f7fb;
+    --accent: #0e7c86;
+    --code-bg: #0f1720;
+    --code-fg: #e8eef4;
+    --kw: #7dd3fc;
+    --str: #86efac;
+    --cm: #94a3b8;
+  }
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0;
+    padding: 0;
+    color: var(--ink);
+    background: var(--paper);
+    font: 11pt/1.55 "Segoe UI", "Calibri", "Liberation Sans", sans-serif;
+  }
+  @page {
+    size: A4;
+    margin: 16mm 15mm 18mm 15mm;
+  }
+  .cover {
+    min-height: 240mm;
+    padding: 28mm 8mm 20mm;
+    page-break-after: always;
+    background:
+      linear-gradient(165deg, #0b1622 0%, #143044 48%, #0e7c86 140%);
+    color: #f4fbff;
+  }
+  .cover h1 {
+    font-size: 34pt;
+    line-height: 1.15;
+    margin: 0 0 12px;
+    font-weight: 700;
+  }
+  .cover .subtitle {
+    font-size: 14pt;
+    color: #c9e8ee;
+    max-width: 140mm;
+  }
+  .cover .meta {
+    margin-top: 42mm;
+    font-size: 11pt;
+    color: #d7eef2;
+  }
+  .cover .meta div { margin: 4px 0; }
+  .kicker {
+    letter-spacing: .18em;
+    text-transform: uppercase;
+    font-size: 9pt;
+    color: #8adfe8;
+    margin-bottom: 14px;
+  }
+  h1, h2, h3, h4 { page-break-after: avoid; }
+  h1 {
+    font-size: 20pt;
+    margin: 0 0 10px;
+    color: #0b2a36;
+    border-bottom: 2px solid var(--accent);
+    padding-bottom: 6px;
+  }
+  h2 {
+    font-size: 14.5pt;
+    margin: 22px 0 8px;
+    color: #12313d;
+  }
+  h3 {
+    font-size: 12pt;
+    margin: 16px 0 6px;
+    color: #1a4a58;
+  }
+  p { margin: 0 0 10px; }
+  ul, ol { margin: 0 0 12px; padding-left: 18px; }
+  li { margin: 3px 0; }
+  a { color: var(--accent); }
+  .chapter { page-break-before: always; }
+  .chapter.first { page-break-before: auto; }
+  .note, .analogy, .callout {
+    border-radius: 8px;
+    padding: 10px 12px;
+    margin: 12px 0;
+    page-break-inside: avoid;
+  }
+  .note { background: #eef7f8; border-left: 4px solid var(--accent); }
+  .analogy { background: #f3eefc; border-left: 4px solid #7c5cbf; }
+  .callout { background: #fff6e8; border-left: 4px solid #d0892b; }
+  .note strong, .analogy strong, .callout strong { display: block; margin-bottom: 2px; }
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 10px 0 14px;
+    font-size: 10pt;
+    page-break-inside: avoid;
+  }
+  th, td {
+    border: 1px solid var(--line);
+    padding: 6px 8px;
+    text-align: left;
+    vertical-align: top;
+  }
+  th { background: var(--tint); }
+  pre {
+    background: var(--code-bg);
+    color: var(--code-fg);
+    padding: 10px 12px;
+    border-radius: 8px;
+    font: 8.4pt/1.45 Consolas, "Cascadia Mono", "Courier New", monospace;
+    white-space: pre-wrap;
+    word-break: break-word;
+    overflow-wrap: anywhere;
+    page-break-inside: avoid;
+  }
+  code {
+    font-family: Consolas, "Cascadia Mono", "Courier New", monospace;
+    font-size: 9.4pt;
+    background: #eef2f6;
+    padding: 0 3px;
+    border-radius: 3px;
+  }
+  pre code { background: none; color: inherit; padding: 0; font-size: inherit; }
+  .fig {
+    background: var(--tint);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 10px 12px;
+    margin: 12px 0;
+    font: 8.6pt/1.4 Consolas, "Cascadia Mono", monospace;
+    white-space: pre;
+    overflow: hidden;
+    page-break-inside: avoid;
+  }
+  .caption {
+    font-size: 9.5pt;
+    color: var(--muted);
+    margin: -6px 0 12px;
+  }
+  .toc a { text-decoration: none; color: var(--ink); }
+  .toc ol { list-style: none; padding-left: 0; }
+  .toc li { margin: 5px 0; }
+  .toc .sec { color: var(--muted); font-size: 10pt; margin-left: 14px; display: block; }
+  footer.pagefoot {
+    color: var(--muted);
+    font-size: 8.5pt;
+    margin-top: 18px;
+  }
+</style>
+</head>
+<body>
+
+<section class="cover">
+  <div class="kicker">Andiya media player</div>
+  <h1>How this app is created<br>and how it works</h1>
+  <p class="subtitle">A guided internals document for developers who already know C/C++, C# or Python, but have not used Qt or QML yet. Real code from Andiya is mixed with small teaching examples.</p>
+  <div class="meta">
+    <div>Application: Andiya (Qt 6.8, C++20, QML)</div>
+    <div>Audience: C / C++ / C# / Python developers</div>
+    <div>Companion to the source tree at D:\Code\Andiya</div>
+    <div>Created for study of this codebase — not a substitute for official Qt documentation</div>
+  </div>
+</section>
+
+<section class="chapter first">
+  <h1>Contents</h1>
+  <div class="toc">
+    <ol>
+      <li>1. What you are looking at</li>
+      <li>2. Map Qt onto languages you already know</li>
+      <li>3. The Qt object model: QObject, properties, signals</li>
+      <li>4. QML in one sitting (think XAML, not HTML)</li>
+      <li>5. Andiya’s folder map and build</li>
+      <li>6. Boot sequence: from <code>main()</code> to the window</li>
+      <li>7. The window, theme, and reusable components</li>
+      <li>8. Playback: files, streams, frames, audio</li>
+      <li>9. The filter pipeline and plugin system</li>
+      <li>10. Library, captures, compare mode, workspace</li>
+      <li>11. Persistence, threading, and diagnostics</li>
+      <li>12. How to change the app yourself</li>
+      <li>13. Glossary and further reading</li>
+    </ol>
+  </div>
+  <div class="note">
+    <strong>How to read this</strong>
+    Chapters 2–4 teach Qt/QML with small examples. Chapters 5–11 walk through Andiya specifically. Chapter 12 is a cookbook: add a button, a C++ property, a shortcut, a plugin. You can skip to 5 if you only want the app, then jump back when a QML line looks alien.
+  </div>
+</section>
+
+<section class="chapter">
+  <h1>1. What you are looking at</h1>
+  <p>Andiya is a desktop media player written in <strong>C++20</strong> with a <strong>Qt Quick / QML</strong> user interface. It plays video, audio and still images, opens network streams (RTSP, RTMP, HTTP(S) and similar), captures lossless PNG frames, compares original vs filtered frames, and runs third-party image filters as plugins.</p>
+  <p>It is not a WinForms app, not WPF, not Electron, and not a Python GUI. The closest mental picture if you come from .NET is:</p>
+  <ul>
+    <li><strong>C++ Qt objects</strong> ≈ C# view-models / services (the “brain”)</li>
+    <li><strong>QML</strong> ≈ XAML + a bit of JavaScript (the “look and layout”)</li>
+    <li><strong>Qt Multimedia / FFmpeg plugin</strong> ≈ a media pipeline you do not write yourself</li>
+    <li><strong>CMake</strong> ≈ the project file (csproj / sln, but for C++)</li>
+  </ul>
+  <p>The UI never talks to files or codecs directly. Buttons and sliders call methods on C++ objects that were registered at startup. Those objects emit signals when state changes, and QML bindings refresh automatically. That split is the whole architecture.</p>
+
+  <h2>1.1 What the user sees, what the code owns</h2>
+  <div class="fig">User
+  │  clicks Open, Tools, Compare, Capture…
+  ▼
+QML window (qml/Main.qml and friends)
+  │  bindings: player.playing, pluginModel, Theme.cyan…
+  │  calls:    player.openMedia(), pluginModel.setPluginEnabled()
+  ▼
+C++ controllers registered in src/main.cpp
+  ├── PlayerController     playback, seek, capture, compare, subtitles
+  ├── PluginListModel      discovered plugins, order, enable, presets
+  ├── StudioController     workspace, catalogs, shortcuts, stream profiles
+  ├── ScreenshotListModel  capture folder listing
+  └── ThumbnailProvider    lazy video posters for the library
+  │
+  ▼
+Qt Multimedia  →  ffmpegmediaplugin.dll  →  decoded frames / audio
+FilterPipeline →  child processes (native DLL worker + Python host)
+  </div>
+  <p class="caption">Figure 1. One-way ownership: QML presents state; C++ owns media, files, and plugins.</p>
+
+  <h2>1.2 Technology stack (this tree)</h2>
+  <table>
+    <tr><th>Layer</th><th>Andiya uses</th><th>If you know…</th></tr>
+    <tr><td>Language</td><td>C++20</td><td>C# classes, Python classes, raw C</td></tr>
+    <tr><td>UI</td><td>Qt Quick / QML 6.8</td><td>WPF XAML, Flutter, React (declarative)</td></tr>
+    <tr><td>Widgets style</td><td>Qt Quick Controls 2, Basic style</td><td>We restyle controls ourselves</td></tr>
+    <tr><td>Media</td><td>Qt Multimedia + FFmpeg backend</td><td>NAudio + FFmpeg, MediaElement</td></tr>
+    <tr><td>Build</td><td>CMake 3.24+ / MSVC</td><td>MSBuild, dotnet build</td></tr>
+    <tr><td>Settings</td><td>QSettings</td><td>Properties.Settings, JSON config</td></tr>
+    <tr><td>Plugins</td><td>C ABI DLL + out-of-process Python</td><td>C# plugins + subprocess workers</td></tr>
+  </table>
+  <p>Official Qt docs live at <em>doc.qt.io</em>. This PDF explains the subset Andiya actually uses, with analogies and with this repo’s files.</p>
+</section>
+
+<section class="chapter">
+  <h1>2. Map Qt onto languages you already know</h1>
+
+  <h2>2.1 Qt is a C++ application framework</h2>
+  <p>Qt is a large C++ library (plus tools) for writing desktop, mobile and embedded apps. “Qt” is not QML. QML is one UI technology that sits on top of Qt. You can write a Qt app with no QML at all (classic Widgets, like WinForms). Andiya chose Qt Quick/QML because it is better at custom, animated, GPU-friendly layouts — more like WPF or Flutter than WinForms.</p>
+
+  <table>
+    <tr><th>Concept</th><th>C# / .NET</th><th>Python</th><th>Qt / Andiya</th></tr>
+    <tr><td>App entry</td><td><code>static void Main</code> + <code>Application.Run</code></td><td><code>app.exec()</code> in PyQt / Tk</td><td><code>int main</code> + <code>QGuiApplication::exec()</code></td></tr>
+    <tr><td>UI markup</td><td>XAML</td><td>Qt Designer .ui, or code</td><td><code>.qml</code> files</td></tr>
+    <tr><td>Code-behind / VM</td><td>code-behind or ViewModel</td><td>slots on a QObject</td><td>C++ <code>QObject</code> subclasses</td></tr>
+    <tr><td>Data binding</td><td><code>INotifyPropertyChanged</code></td><td>property notify in PySide</td><td><code>Q_PROPERTY</code> + <code>NOTIFY</code></td></tr>
+    <tr><td>Events</td><td><code>event EventHandler</code> / delegates</td><td>callbacks, signals in PyQt</td><td>signals and slots</td></tr>
+    <tr><td>Lists in UI</td><td><code>ObservableCollection</code> + ItemsControl</td><td>list + Repeater-like widgets</td><td><code>QAbstractListModel</code> + Repeater/ListView</td></tr>
+    <tr><td>Resources</td><td>resx / pack URIs</td><td>pkgutil data files</td><td>Qt resource system (<code>:/assets/...</code>)</td></tr>
+    <tr><td>Settings</td><td>user.config</td><td>QSettings or json</td><td><code>QSettings</code> (registry/ini)</td></tr>
+    <tr><td>Threads</td><td><code>Task</code> / <code>Dispatcher</code></td><td>threads + queue</td><td><code>QThread</code> + queued signals</td></tr>
+  </table>
+
+  <div class="analogy">
+    <strong>C# developer shortcut</strong>
+    Treat QML as XAML with JavaScript expressions allowed in bindings. Treat every <code>Q_PROPERTY</code> as a bindable CLR property. Treat <code>signals:</code> as C# <code>event</code>. Treat <code>Q_INVOKABLE</code> as a public method the XAML can call. Treat <code>setContextProperty("player", &amp;player)</code> as putting an object into <code>DataContext</code> with a well-known name.
+  </div>
+  <div class="analogy">
+    <strong>Python developer shortcut</strong>
+    If you have seen PyQt5/PySide6, Andiya is the same object model, just written in C++. <code>QObject</code>, signals, slots, <code>QUrl</code>, <code>QImage</code> are identical types. QML is the extra language that replaces packing widgets in Python.
+  </div>
+  <div class="analogy">
+    <strong>Pure C/C++ developer shortcut</strong>
+    Qt is not STL. Most interesting types inherit <code>QObject</code>, live on the heap, and participate in a parent-owned tree that deletes children automatically. Strings are <code>QString</code> (UTF-16). There is an event loop. You rarely write a raw Win32 message pump.
+  </div>
+
+  <h2>2.2 Modules Andiya actually links</h2>
+  <p>From <code>CMakeLists.txt</code>:</p>
+<pre><code>find_package(Qt6 6.8 REQUIRED COMPONENTS
+    Quick
+    QuickControls2
+    Multimedia
+    Network
+)</code></pre>
+  <ul>
+    <li><strong>Quick</strong> — the QML engine and scene graph (the renderer).</li>
+    <li><strong>QuickControls2</strong> — Button, Slider, Popup, ApplicationWindow, Menu…</li>
+    <li><strong>Multimedia</strong> — <code>QMediaPlayer</code>, <code>VideoOutput</code>, <code>QVideoSink</code>, audio devices.</li>
+    <li><strong>Network</strong> — catalog downloads in <code>StudioController</code>.</li>
+  </ul>
+  <p>On Windows the deployed app also ships <code>ffmpegmediaplugin.dll</code> plus FFmpeg DLLs (<code>avcodec</code>, <code>avformat</code>, …). That is why RTSP can work without VLC and without a plugin of our own: protocol/demux lives under Qt Multimedia, not in Andiya’s plugin ABI.</p>
+
+  <h2>2.3 Two UI toolkits inside Qt — Andiya picked Quick</h2>
+  <table>
+    <tr><th>Qt Widgets</th><th>Qt Quick / QML</th></tr>
+    <tr><td>C++ classes: QPushButton, QMainWindow</td><td>Declarative files: Button {}, Rectangle {}</td></tr>
+    <tr><td>Like WinForms / classic desktop</td><td>Like WPF / mobile / custom chrome</td></tr>
+    <tr><td>Easier for dialog-heavy tools</td><td>Easier for animated, skinned players</td></tr>
+  </table>
+  <p>Andiya uses Quick exclusively. There is no <code>QMainWindow</code>. The window is <code>ApplicationWindow</code> in QML, with <code>Qt.FramelessWindowHint</code> so the title bar is custom.</p>
+</section>
+
+<section class="chapter">
+  <h1>3. The Qt object model: QObject, properties, signals</h1>
+  <p>Almost every C++ class that QML can see inherits <code>QObject</code> and starts with the macro <code>Q_OBJECT</code>. That macro enables Qt’s meta-object compiler (<strong>moc</strong>). moc reads the header and generates extra C++ that implements:</p>
+  <ul>
+    <li>the class name as a string</li>
+    <li>property get/set</li>
+    <li>signal emission</li>
+    <li>invokable methods</li>
+  </ul>
+  <p>You never run moc yourself. CMake’s <code>qt_standard_project_setup</code> wires it up. If you add a new <code>Q_PROPERTY</code> and the UI does not update, you usually forgot <code>Q_OBJECT</code>, forgot to emit the NOTIFY signal, or the header was not listed in the target so moc never saw it.</p>
+
+  <h2>3.1 A tiny teaching example (not Andiya)</h2>
+  <p>C++ header:</p>
+<pre><code>class Counter : public QObject {
+    Q_OBJECT
+    Q_PROPERTY(int value READ value WRITE setValue NOTIFY valueChanged)
+public:
+    explicit Counter(QObject *parent = nullptr) : QObject(parent) {}
+    int value() const { return m_value; }
+    void setValue(int v) {
+        if (m_value == v) return;      // avoid extra notifications
+        m_value = v;
+        emit valueChanged();
+    }
+    Q_INVOKABLE void increment() { setValue(m_value + 1); }
+signals:
+    void valueChanged();
+private:
+    int m_value = 0;
+};</code></pre>
+  <p>Equivalent C# idea:</p>
+<pre><code>public class Counter : INotifyPropertyChanged {
+    int _value;
+    public int Value {
+        get => _value;
+        set { if (_value == value) return; _value = value; PropertyChanged?.Invoke(this,
+            new PropertyChangedEventArgs(nameof(Value))); }
+    }
+    public event PropertyChangedEventHandler PropertyChanged;
+    public void Increment() => Value++;
+}</code></pre>
+  <p>Equivalent Python (PySide6) idea:</p>
+<pre><code>class Counter(QObject):
+    valueChanged = Signal()
+    def __init__(self):
+        super().__init__()
+        self._value = 0
+    def value(self):
+        return self._value
+    def setValue(self, v):
+        if self._value == v: return
+        self._value = v
+        self.valueChanged.emit()
+    value = Property(int, value, setValue, notify=valueChanged)</code></pre>
+  <p>QML that uses it, once C++ did <code>engine.rootContext()-&gt;setContextProperty("counter", &amp;counter)</code>:</p>
+<pre><code>Text { text: "Count: " + counter.value }
+Button { text: "+1"; onClicked: counter.increment() }</code></pre>
+  <p>When <code>increment()</code> runs, it emits <code>valueChanged</code>. The Text binding re-evaluates. You do not write <code>label.Text = ...</code> by hand. That is the same idea as WPF <code>{Binding Value}</code>.</p>
+
+  <h2>3.2 Signals and slots</h2>
+  <p>A <strong>signal</strong> is a declaration of “this happened”. A <strong>slot</strong> (or any callable) is “when that happens, run me”. Connection is not a C# multicast delegate you subscribe with <code>+=</code>; it is <code>QObject::connect</code>.</p>
+  <p>From Andiya <code>src/main.cpp</code>, when the capture folder changes, the screenshot list reloads:</p>
+<pre><code>QObject::connect(&amp;player, &amp;PlayerController::captureDirectoryChanged,
+                 &amp;screenshots, [&amp;player, &amp;screenshots] {
+    screenshots.setDirectory(player.captureDirectoryPath());
+});</code></pre>
+  <p>That is: “player signal → lambda slot”. Qt can also connect signal to a real member function by pointer-to-member, which is type-safe (the compiler checks the signatures).</p>
+  <div class="note">
+    <strong>Queued connections and threads</strong>
+    If the sender and receiver live on different threads, Qt can post the call onto the receiver’s event loop (<code>Qt::QueuedConnection</code>). Andiya uses this so filter workers finish on a background thread, then hop back to the UI thread to present a frame. You do not marshal with <code>Control.Invoke</code>; you emit a signal or <code>QMetaObject::invokeMethod(..., Qt::QueuedConnection)</code>.
+  </div>
+
+  <h2>3.3 Q_PROPERTY in the real player</h2>
+  <p>A shortened view of <code>src/player/PlayerController.h</code> — this is the contract QML binds to:</p>
+<pre><code>class PlayerController final : public QObject
+{
+    Q_OBJECT
+    Q_PROPERTY(QString title READ title NOTIFY mediaChanged)
+    Q_PROPERTY(bool playing READ playing NOTIFY playingChanged)
+    Q_PROPERTY(qreal volume READ volume WRITE setVolume NOTIFY volumeChanged)
+    Q_PROPERTY(qint64 position READ position NOTIFY positionChanged)
+    Q_PROPERTY(qint64 duration READ duration NOTIFY durationChanged)
+    Q_PROPERTY(bool isLiveStream READ isLiveStream NOTIFY mediaChanged)
+    Q_PROPERTY(bool compareModeActive READ compareModeActive NOTIFY compareModeChanged)
+    // ... dozens more
+public:
+    Q_INVOKABLE void openMedia(const QUrl &amp;url);
+    Q_INVOKABLE void openNetworkStream(const QString &amp;urlText);
+    Q_INVOKABLE void togglePlayback();
+    Q_INVOKABLE void seek(qint64 positionMs);
+    Q_INVOKABLE void enterCompareMode();
+signals:
+    void mediaChanged();
+    void playingChanged();
+    void notification(const QString &amp;title, const QString &amp;message);
+};</code></pre>
+  <p>QML then writes things like:</p>
+<pre><code>title: player.hasMedia ? player.title + " - Andiya" : "Andiya"
+
+Slider {
+    value: player.duration &gt; 0 ? player.position / player.duration : 0
+    enabled: player.hasMedia &amp;&amp; !player.isLiveStream &amp;&amp; player.duration &gt; 0
+    onMoved: player.seek(value * player.duration)
+}</code></pre>
+  <p>Read those as XAML bindings plus an event handler. <code>player</code> is not imported; it is a context property created in <code>main.cpp</code> (chapter 6).</p>
+
+  <h2>3.4 Parent ownership (important)</h2>
+  <p>If you pass a <code>QObject *parent</code> into a constructor, Qt deletes the child when the parent dies. Stack-allocated QObjects in <code>main()</code> (Andiya’s pattern) live until <code>main</code> returns, which is after <code>app.exec()</code> finishes — that is fine. Heap objects without a parent must be deleted or they leak. This is closer to a WinForms control tree than to <code>shared_ptr</code> everywhere.</p>
+</section>
+
+<section class="chapter">
+  <h1>4. QML in one sitting (think XAML, not HTML)</h1>
+  <p>QML is a declarative language. A file describes a tree of items. Curly braces are object definitions, not C scopes. <code>property</code> creates a bindable field. <code>id:</code> names a node so siblings can refer to it. JavaScript is allowed in expressions and handlers, but Andiya keeps logic in C++ whenever it touches files, codecs, or plugins.</p>
+
+  <h2>4.1 A complete tiny window (teaching example)</h2>
+<pre><code>import QtQuick
+import QtQuick.Controls
+
+ApplicationWindow {
+    width: 400
+    height: 200
+    visible: true
+    title: "Hello"
+
+    Column {
+        anchors.centerIn: parent
+        spacing: 12
+        Text { id: label; text: "Idle" }
+        Button {
+            text: "Play"
+            onClicked: label.text = "Playing"
+        }
+    }
+}</code></pre>
+  <p><code>onClicked</code> is the handler for the control’s <code>clicked</code> signal. Naming is always <code>on</code> + capitalized signal name: <code>clicked</code> → <code>onClicked</code>, <code>valueChanged</code> → <code>onValueChanged</code>.</p>
+
+  <h2>4.2 Anchors vs layouts</h2>
+  <p>QML has two layout styles, and Andiya uses both.</p>
+  <table>
+    <tr><th>Style</th><th>Like</th><th>Used when</th></tr>
+    <tr><td><code>anchors.fill: parent</code></td><td>DockStyle.Fill / HorizontalAlignment Stretch</td><td>A child should occupy its parent (video surface, overlays)</td></tr>
+    <tr><td><code>RowLayout</code> / <code>ColumnLayout</code></td><td>StackPanel / Grid with * rows</td><td>Toolbars, panels, dialogs that must reflow</td></tr>
+  </table>
+  <p>Teaching snippet:</p>
+<pre><code>Item {
+    anchors.fill: parent
+    Rectangle {
+        anchors.left: parent.left
+        anchors.top: parent.top
+        anchors.bottom: parent.bottom
+        width: 72          // left rail
+        color: "#18202B"
+    }
+    Rectangle {
+        anchors.left: parent.left
+        anchors.leftMargin: 72
+        anchors.right: parent.right
+        anchors.top: parent.top
+        anchors.bottom: parent.bottom
+        color: "#0B1119"   // remaining stage
+    }
+}</code></pre>
+  <p>Andiya’s main chrome in <code>qml/Main.qml</code> is a <code>RowLayout</code>: nav rail | library | media column | captures/tools. Fullscreen hides the docks by visibility, not by destroying them, so selection is kept.</p>
+
+  <h2>4.3 Custom components = UserControls</h2>
+  <p>A file named <code>IconButton.qml</code> becomes a type <code>IconButton</code> inside the same QML module. Properties you declare become the component’s public API:</p>
+<pre><code>// qml/components/IconButton.qml (excerpt)
+Rectangle {
+    id: root
+    property string glyph: ""
+    property string label: ""
+    property string toolTip: ""
+    property bool active: false
+    property color accentColor: Theme.cyan
+    signal clicked()
+    TapHandler { onTapped: root.clicked() }
+}</code></pre>
+  <p>Call site, anywhere in the app:</p>
+<pre><code>IconButton {
+    glyph: "CMP"
+    toolTip: "Compare original vs. filtered (K)"
+    active: player.compareModeActive
+    onClicked: player.compareModeActive ? player.exitCompareMode()
+                                        : player.enterCompareMode()
+}</code></pre>
+  <p>That is a UserControl with dependency properties, plus a custom routed event named <code>clicked</code>.</p>
+
+  <h2>4.4 Singletons</h2>
+  <p><code>qml/Theme.qml</code> and <code>qml/TimeFormat.qml</code> are registered as singletons in CMake:</p>
+<pre><code>set_source_files_properties(qml/Theme.qml PROPERTIES
+    QT_QML_SINGLETON_TYPE TRUE
+    QT_RESOURCE_ALIAS Theme.qml
+)</code></pre>
+  <p>Any QML file can then write <code>Theme.cyan</code> or <code>TimeFormat.time(player.position)</code> without creating an instance. This is a ResourceDictionary + static helper in one object. <code>pragma Singleton</code> at the top of the QML file is the matching declaration.</p>
+
+  <h2>4.5 JavaScript in QML — keep it thin</h2>
+  <p>You <em>can</em> write functions in QML:</p>
+<pre><code>function toggleFullscreen() {
+    if (visibility === Window.FullScreen) showNormal()
+    else showFullScreen()
+}</code></pre>
+  <p>Andiya does that for window chrome and shortcut gating. It does <em>not</em> decode video or talk to Python from QML. If a feature needs a file path, a process, or a pixel buffer, it belongs in C++.</p>
+
+  <h2>4.6 List models</h2>
+  <p>C# <code>ItemsControl</code> + <code>ObservableCollection</code> becomes QML <code>Repeater</code> / <code>ListView</code> + <code>QAbstractListModel</code>.</p>
+  <p>C++ must implement <code>rowCount</code>, <code>data</code>, and <code>roleNames</code> (role names become the property names in the delegate). <code>PluginListModel</code> exposes <code>name</code>, <code>vendor</code>, <code>pluginEnabled</code>, and so on. QML:</p>
+<pre><code>Repeater {
+    model: pluginModel
+    RowLayout {
+        required property int index
+        required property string name
+        required property bool pluginEnabled
+        Switch {
+            checked: pluginEnabled
+            onToggled: pluginModel.setPluginEnabled(index, checked)
+        }
+    }
+}</code></pre>
+  <p>When C++ calls <code>beginMoveRows</code> / <code>endMoveRows</code> (filter reorder), the Repeater moves items. When it emits <code>filterStackChanged</code>, other UI (the filter graph, compare view) refreshes.</p>
+
+  <h2>4.7 Imports you will see at the top of Andiya QML</h2>
+  <table>
+    <tr><th>Import</th><th>Gives you</th></tr>
+    <tr><td><code>QtQuick</code></td><td>Item, Rectangle, Text, Image, Timer, bindings</td></tr>
+    <tr><td><code>QtQuick.Controls</code></td><td>ApplicationWindow, Button, Slider, Popup, Switch</td></tr>
+    <tr><td><code>QtQuick.Layouts</code></td><td>RowLayout, ColumnLayout, Layout.fillWidth</td></tr>
+    <tr><td><code>QtQuick.Dialogs</code></td><td>FileDialog</td></tr>
+    <tr><td><code>QtMultimedia</code></td><td>VideoOutput</td></tr>
+    <tr><td><code>QtQuick.Effects</code></td><td>MultiEffect (brightness/contrast overlay)</td></tr>
+  </table>
+</section>
+
+<section class="chapter">
+  <h1>5. Andiya’s folder map and build</h1>
+
+  <h2>5.1 Source tree</h2>
+  <table>
+    <tr><th>Path</th><th>Role</th></tr>
+    <tr><td><code>src/main.cpp</code></td><td>Process entry, construct controllers, load QML</td></tr>
+    <tr><td><code>src/player/</code></td><td>Playback, frames, exports, screenshots, thumbnails, studio</td></tr>
+    <tr><td><code>src/plugins/</code></td><td>Plugin model, validation, filter pipeline, Python host</td></tr>
+    <tr><td><code>include/andiya/plugin_api.h</code></td><td>Public C ABI for native filters</td></tr>
+    <tr><td><code>qml/</code></td><td>Window, dialogs, Theme</td></tr>
+    <tr><td><code>qml/components/</code></td><td>Buttons, menus, media stage, timeline, compare view</td></tr>
+    <tr><td><code>qml/panels/</code></td><td>Library, Tools, captures, filter graph dialog</td></tr>
+    <tr><td><code>plugins/</code></td><td>Example native + Python filters shipped with the app</td></tr>
+    <tr><td><code>runtime/python/</code></td><td>Host script spawned per Python plugin</td></tr>
+    <tr><td><code>docs/</code></td><td>User guide, building, plugin reference — and this PDF</td></tr>
+    <tr><td><code>CMakeLists.txt</code></td><td>Targets, QML module, copy plugins next to the exe</td></tr>
+  </table>
+
+  <h2>5.2 How a QML file becomes part of the exe</h2>
+  <p>Andiya does not load QML from loose files next to the exe in production. CMake compiles them into a Qt resource module named URI <code>Andiya</code>:</p>
+<pre><code>qt_add_qml_module(Andiya
+    URI Andiya
+    VERSION 1.0
+    QML_FILES
+        qml/Main.qml
+        qml/Theme.qml
+        qml/components/MediaStage.qml
+        ...
+)</code></pre>
+  <p>Startup then does:</p>
+<pre><code>engine.loadFromModule(QStringLiteral("Andiya"), QStringLiteral("Main"));</code></pre>
+  <p>That means: “find type Main inside module Andiya”. Adding a new QML file is a three-step ritual:</p>
+  <ol>
+    <li>Create the <code>.qml</code> file.</li>
+    <li>Add <code>set_source_files_properties(... QT_RESOURCE_ALIAS ...)</code> if you care about the name inside the module.</li>
+    <li>List it under <code>QML_FILES</code> in <code>CMakeLists.txt</code>.</li>
+  </ol>
+  <p>If you forget step 3, the engine cannot see the type. If you change QML only, you still need a rebuild so the resource compiler (rcc) and qmlcache pick it up. That is why “I edited QML but the running exe looks old” is usually a stale build, not a QML bug.</p>
+
+  <h2>5.3 CMake vs a Visual Studio C# project</h2>
+  <p><code>qt_add_executable(Andiya ...)</code> is “here are the .cpp/.h files”. <code>target_link_libraries(Andiya PRIVATE Qt6::Quick Qt6::Multimedia ...)</code> is package references. Extra targets exist for:</p>
+  <ul>
+    <li><code>AndiyaSoftContrastPlugin</code> — sample native filter DLL</li>
+    <li><code>AndiyaFilterWorker</code> — out-of-process native worker</li>
+    <li><code>AndiyaPluginValidator</code> — package/manifest checks</li>
+  </ul>
+  <p>POST_BUILD copy commands place plugins and <code>andiya_python_host.py</code> next to <code>Andiya.exe</code> so a developer run works without an installer.</p>
+
+  <h2>5.4 Why windeployqt exists</h2>
+  <p>Unlike a fully statically linked C# app, a Qt exe needs sibling DLLs: Qt6Quick.dll, platform plugin <code>qwindows.dll</code>, QML modules, multimedia plugins. <code>windeployqt</code> copies that tree into <code>build/Release</code>. If the exe starts and instantly exits, missing platform plugins are a common cause.</p>
+</section>
+
+<section class="chapter">
+  <h1>6. Boot sequence: from main() to the window</h1>
+  <p>Read <code>src/main.cpp</code> top to bottom. This is the entire composition root.</p>
+
+  <h2>6.1 Create the application object</h2>
+<pre><code>QGuiApplication::setApplicationName("Andiya");
+QGuiApplication::setOrganizationName("Andiya");
+QGuiApplication app(argc, argv);
+QQuickStyle::setStyle("Basic");</code></pre>
+  <p><code>QGuiApplication</code> is the process-wide object: event loop, high-DPI, clipboard, screens. Organization/application names are not cosmetic — <code>QSettings</code> uses them as the registry path (Windows) or config folder (others). Style “Basic” means Andiya draws its own controls instead of native Fusion/Windows chrome.</p>
+  <p>Two special argv modes exist: <code>--self-test DIR</code> runs integration tests without the UI, and <code>--ui-smoke DIR</code> opens Workspace tabs and screenshots them. Ordinary users never pass those.</p>
+
+  <h2>6.2 Construct the C++ “view models”</h2>
+<pre><code>PluginListModel plugins;
+PlayerController player(&amp;plugins);
+StudioController studio(&amp;player, &amp;plugins);
+ThumbnailProvider thumbnails;
+ScreenshotListModel screenshots;</code></pre>
+  <p>Order matters: the player needs the plugin model to apply filters. Studio needs both, because a workspace export includes playlist + filter presets. Screenshots wait 250 ms before scanning the capture folder so the window can appear first.</p>
+
+  <h2>6.3 Publish them to QML</h2>
+<pre><code>QQmlApplicationEngine engine;
+engine.addImageProvider("frames", new FrameStore);
+engine.rootContext()-&gt;setContextProperty("studio", &amp;studio);
+engine.rootContext()-&gt;setContextProperty("player", &amp;player);
+engine.rootContext()-&gt;setContextProperty("pluginModel", &amp;plugins);
+engine.rootContext()-&gt;setContextProperty("thumbnails", &amp;thumbnails);
+engine.rootContext()-&gt;setContextProperty("screenshots", &amp;screenshots);
+engine.loadFromModule("Andiya", "Main");
+return app.exec();</code></pre>
+  <div class="note">
+    <strong>Context properties are globals on purpose</strong>
+    Every QML file can say <code>player.togglePlayback()</code> without imports. That is convenient for a single-window app and slightly implicit. A larger Qt codebase might register types with <code>qmlRegisterType</code> and instantiate them in QML instead. Andiya’s size makes the global objects a fair trade.
+  </div>
+  <p><code>FrameStore</code> is a <code>QQuickImageProvider</code>. QML <code>Image { source: "image://frames/some-key" }</code> asks C++ for a <code>QImage</code>. Compare mode uses this kind of in-memory / cache-file round trip so both panes can show PNG snapshots without inventing a new control.</p>
+
+  <h2>6.4 Command-line open</h2>
+  <p>After the window loads, if argv has a path or URL, <code>player.openMedia</code> runs on a zero-delay timer (so QML bindings exist first). A second argument is treated as a subtitle file. This is the same idea as associating the exe with video files in the shell.</p>
+
+  <h2>6.5 What <code>app.exec()</code> actually is</h2>
+  <p>It is the message loop. Until it returns, Qt delivers mouse/keyboard, timers, queued signals, and vsync frames. C# <code>Application.Run</code> and Python <code>app.exec()</code> are the same idea. Long work on this thread freezes the UI — that is why filters run on <code>FilterPipeline</code>’s worker thread and child processes.</p>
+</section>
+
+<section class="chapter">
+  <h1>7. The window, theme, and reusable components</h1>
+
+  <h2>7.1 Main.qml is the shell</h2>
+  <p><code>qml/Main.qml</code> declares an <code>ApplicationWindow</code> with no native title bar:</p>
+<pre><code>ApplicationWindow {
+    id: window
+    flags: Qt.Window | Qt.FramelessWindowHint
+           | Qt.WindowSystemMenuHint | Qt.WindowMinimizeButtonHint
+           | Qt.WindowMaximizeButtonHint | Qt.WindowCloseButtonHint
+    font.pixelSize: 14 * studio.textScale
+    title: player.hasMedia ? player.title + " - Andiya" : "Andiya"
+}</code></pre>
+  <p>Because it is frameless, the file also implements drag-to-move, custom min/max/close buttons, and resize edges. That is extra QML compared with a normal OS window, and it is why the chrome can follow Theme colors.</p>
+  <p>Window-level properties keep sidebar state:</p>
+<pre><code>property bool pluginsOpen: false
+property bool screenshotsOpen: false
+property bool libraryOpen: true
+readonly property bool dualSidebars: width &gt;= 1280</code></pre>
+  <p>On a wide window, library and Tools/Captures can both stay open. On a narrow window, opening one closes the other so the timeline never slides under a dock. That logic is UI-only; C++ does not know about sidebars.</p>
+
+  <h2>7.2 Theme.qml — a palette object</h2>
+  <p>Theme is a singleton <code>QtObject</code> with <code>styleName</code> and a big <code>colors</code> map. The rest of the UI reads <code>Theme.text</code>, <code>Theme.cyan</code>, <code>Theme.surface</code>. Changing the combo box in Settings/Workspace assigns <code>Theme.styleName = currentText</code>. A <code>Connections</code> block in Main writes it back to the player so <code>QSettings</code> remembers it:</p>
+<pre><code>Connections {
+    target: Theme
+    function onStyleNameChanged() { player.setThemeName(Theme.styleName) }
+}</code></pre>
+  <div class="analogy">
+    <strong>WPF analogue</strong>
+    DynamicResource brushes in a merged dictionary, plus a setting that picks which dictionary is active. There is no XAML <code>BasedOn</code> style hierarchy here; components read Theme properties directly.
+  </div>
+
+  <h2>7.3 Component catalog</h2>
+  <table>
+    <tr><th>File</th><th>Job</th></tr>
+    <tr><td><code>GlassPanel.qml</code></td><td>Rounded rectangle used as a card/panel</td></tr>
+    <tr><td><code>IconButton.qml</code></td><td>The app’s button: glyph, label, tooltip, accent, keyboard focus</td></tr>
+    <tr><td><code>ThemedMenu*.qml</code></td><td>Menus that obey Theme (native Menu is unreadable on custom palettes)</td></tr>
+    <tr><td><code>NavRailButton.qml</code></td><td>Left-rail icon + caption</td></tr>
+    <tr><td><code>MediaStage.qml</code></td><td>VideoOutput, image, empty state, context menu, CompareView host</td></tr>
+    <tr><td><code>PlaybackOverlay.qml</code></td><td>Auto-hiding fullscreen OSD</td></tr>
+    <tr><td><code>TimelineControls.qml</code></td><td>Seek bar, volume, transport, overflow menu, LIVE badge</td></tr>
+    <tr><td><code>CompareView.qml</code></td><td>Side-by-side original / filtered export UI</td></tr>
+    <tr><td><code>DisplayAdjustments.qml</code></td><td>Brightness/contrast sliders (GPU MultiEffect, not a plugin)</td></tr>
+  </table>
+
+  <h2>7.4 Dialogs are Popup, not Window</h2>
+  <p>Settings, About, Shortcuts, Network stream, Filter graph, Workspace: all <code>Popup</code> items parented to <code>Overlay.overlay</code>. That keeps them modal inside the same OpenGL/scene-graph window. Escape handling in Main closes the topmost popup, then exits fullscreen, then does nothing aggressive.</p>
+
+  <h2>7.5 Shortcuts</h2>
+  <p>Main.qml declares <code>Shortcut { sequence: "Space"; ... }</code> objects. Letter keys go through <code>plainShortcutEnabled()</code>, which returns false when a text field has a <code>cursorPosition</code> (so typing in the network-URL box does not capture a frame). StudioController can remap common actions; the dialog in Workspace edits that map.</p>
+  <p>The Shortcuts dialog (<code>?</code> / F1) is only documentation of the default set plus a few extras. Making shortcuts visible was a product requirement: people should not have to memorize S, K, comma, period.</p>
+</section>
+
+<section class="chapter">
+  <h1>8. Playback: files, streams, frames, audio</h1>
+
+  <h2>8.1 Opening media</h2>
+  <p><code>PlayerController::openMedia(const QUrl &amp;url)</code> is the single entry for local files, images, and network URLs. Rough flow:</p>
+  <ol>
+    <li>Save resume position of the previous file.</li>
+    <li>Bump an internal <code>m_generation</code> counter so in-flight filter previews are discarded.</li>
+    <li>Decide image vs audio vs video from the suffix (and live vs VOD from the URL scheme).</li>
+    <li>Images: load <code>QImage</code>, stop the media player.</li>
+    <li>AV: <code>m_player-&gt;setSource(url); m_player-&gt;play();</code></li>
+    <li>Emit <code>mediaChanged</code> so the title, stage, and library all refresh.</li>
+  </ol>
+  <p>Network URLs are not a second player. <code>openNetworkStream</code> only validates the typed string into a <code>QUrl</code> and calls <code>openMedia</code>. Live schemes (<code>rtsp</code>, <code>rtmp</code>, <code>udp</code>, …) set <code>isLiveStream</code>, which disables seeking and shows a LIVE badge. HTTP(S) is left seekable because it is often a file on a server, not a camera.</p>
+  <div class="callout">
+    <strong>Plugins cannot add RTSP</strong>
+    The plugin ABI receives already-decoded BGRA frames. Demuxing and network I/O happen inside Qt Multimedia’s FFmpeg plugin. New transports require a Qt/FFmpeg build that implements them, plus UI to pass the URL in — which Andiya already has.
+  </div>
+
+  <h2>8.2 How video reaches the screen</h2>
+  <p>QML hosts a <code>VideoOutput</code> in <code>MediaStage.qml</code>:</p>
+<pre><code>VideoOutput {
+    id: videoOutput
+    anchors.fill: parent
+    visible: player.hasMedia &amp;&amp; !player.imageMode &amp;&amp; player.mediaKind === "Video"
+    fillMode: VideoOutput.PreserveAspectFit
+    Component.onCompleted: player.attachVideoOutput(videoOutput)
+}</code></pre>
+  <p>C++ then steals the output’s <code>QVideoSink</code>:</p>
+<pre><code>void PlayerController::attachVideoOutput(QObject *videoOutput)
+{
+    if (!videoOutput) return;
+    m_displaySink = videoOutput-&gt;property("videoSink").value&lt;QVideoSink *&gt;();
+    if (m_displaySink &amp;&amp; m_currentFrame.isValid())
+        presentFrame(m_currentFrame);
+}</code></pre>
+  <p>Decoded frames do not always go straight to that sink. <code>handleDecodedFrame</code> stores the frame, optionally waits for a filtered preview, then calls <code>presentFrame</code> which is just <code>m_displaySink-&gt;setVideoFrame(frame)</code>.</p>
+  <div class="fig">QMediaPlayer  --decodes--&gt;  QVideoFrame
+        |
+        v
+handleDecodedFrame()
+        |-- no live filters --&gt; presentFrame() --&gt; VideoOutput
+        |-- live filters ------&gt; FilterPipeline (bg thread, child processes)
+                                   |
+                                   +--&gt; QImage --&gt; QVideoFrame --&gt; presentFrame()
+  </div>
+  <p class="caption">Figure 2. Display path. Preview is scaled to max 960 px so the UI stays responsive. Export uses a second pipeline at full resolution.</p>
+
+  <h2>8.3 Frame step uses timestamps, not “duration / fps”</h2>
+  <p>Comma and period do not assume 24 or 30 fps. The player pauses, notes the current frame’s <code>startTime</code>, then keeps decoding until a neighbouring timestamp appears (a look-behind window for backward). If that times out, it reports failure instead of guessing. That is slower than VLC’s decoded-index step on some files, but it stays honest on variable-frame-rate video.</p>
+
+  <h2>8.4 Audio</h2>
+  <p>Qt can play audio through <code>QMediaPlayer</code> directly. Andiya also uses <code>QAudioBufferOutput</code> + <code>QAudioSink</code> so it can restart the sink on device changes and recover from some backend stalls. Volume is a <code>qreal</code> that can exceed 1.0 (soft boost); the UI shows a percentage and turns amber above 100%.</p>
+
+  <h2>8.5 Subtitles</h2>
+  <p>External SRT/VTT-style files are parsed in C++ into a vector of <code>{startMs, endMs, text}</code>. On position changes, the controller picks the active cue and exposes <code>subtitleText</code>. QML only draws a bubble. Timing delay, font size, color and vertical position are properties persisted in settings. Embedded tracks from the container, when Qt exposes them, appear in the track lists.</p>
+
+  <h2>8.6 Images vs video</h2>
+  <p>Still images skip <code>QMediaPlayer</code>. They load into <code>m_originalImage</code> and show in an <code>Image {}</code> item. Filters still apply (compare mode, capture). This is why PNG/JPEG/WEBP work without a decoder timeline.</p>
+</section>
+
+<section class="chapter">
+  <h1>9. The filter pipeline and plugin system</h1>
+  <p>This is the part that makes Andiya more than a thin Qt demo. Filters are not compiled into the player. They are discovered at runtime, ordered in a list, and executed out of the player process.</p>
+
+  <h2>9.1 What a plugin is allowed to do</h2>
+  <p>A plugin receives one raster frame and must return a frame of the <strong>same width and height</strong>. Today the working format is BGRA32 (8-bit, pre-not-required, alpha left alone unless the plugin touches it). Plugins cannot:</p>
+  <ul>
+    <li>open files as a media source (no RTSP plugin)</li>
+    <li>resize the canvas / AI upscale via the current ABI</li>
+    <li>draw widgets into the QML tree</li>
+  </ul>
+  <p>They can: color grade, denoise, grayscale, overlay math on pixels, call Python libraries inside their own process, crash without taking Andiya down.</p>
+
+  <h2>9.2 Discovery and the Tools panel</h2>
+  <p><code>PluginListModel</code> scans plugin directories, reads <code>plugin.json</code>, records native vs Python, and implements <code>QAbstractListModel</code> so QML can list cards. Enable, strength, numeric parameters, up/down reorder, and named presets all live here. <code>snapshot()</code> produces the ordered list the worker thread will run.</p>
+  <p>The Tools drawer visualizes that order as Source → filter → filter → Output. The expanded Filter Graph dialog wraps long chains. Reorder buttons call <code>moveFilterUp</code> / <code>moveFilterDown</code>, which emit <code>filterStackChanged</code>. Compare mode listens to that signal so toggling a plugin updates the filtered pane without closing K mode.</p>
+
+  <h2>9.3 Two pipelines: preview vs capture</h2>
+  <p><code>PlayerController</code> owns:</p>
+<pre><code>FilterPipeline *m_previewPipeline;
+FilterPipeline *m_capturePipeline;</code></pre>
+  <p>Each pipeline is a <code>QObject</code> living with a dedicated <code>QThread</code>. <code>process(image, timestamp, stack, callback)</code> posts work to that thread. Preview scales down to 960 px and may skip frames if the previous preview is still busy (<code>m_skippedPreviews</code> in diagnostics). Capture keeps full resolution and fails the export if the worker errors, instead of silently showing a stale preview.</p>
+  <p>Strength blending happens in C++ after the plugin returns: output = lerp(original, filtered, strength). A plugin that always produces a full effect can still be mixed 30% in the UI.</p>
+
+  <h2>9.4 Native plugins (C ABI)</h2>
+  <p>Header <code>include/andiya/plugin_api.h</code> is a C API so C, C++, and even Rust can implement it. The exported function is:</p>
+<pre><code>ANDIYA_PLUGIN_EXPORT int32_t ANDIYA_PLUGIN_CALL
+andiya_plugin_initialize(
+    uint32_t host_api_version,
+    const AndiyaHostApi *host,
+    AndiyaImageFilterApi *plugin);</code></pre>
+  <p>The plugin fills <code>AndiyaImageFilterApi</code> with function pointers: <code>plugin_id</code>, <code>process_frame</code>, <code>destroy</code>. <code>process_frame</code> gets input/output <code>AndiyaFrame</code> structs (pointer, width, height, stride, timestamp).</p>
+  <p>The shipped example <code>plugins/soft-contrast/plugin.cpp</code> walks every pixel and applies contrast/warmth. That is ordinary C++ image processing; Qt is only used there for JSON parameter parsing.</p>
+  <p>Andiya does <strong>not</strong> <code>LoadLibrary</code> that DLL into the UI process for preview/export. <code>AndiyaFilterWorker.exe</code> loads it. Framed binary I/O plus a timeout means a native access violation kills the worker, Andiya bypasses the frame, and playback continues.</p>
+
+  <h2>9.5 Python plugins (out of process)</h2>
+  <p>For each enabled Python filter, C++ starts:</p>
+<pre><code>py -3  python_runtime/andiya_python_host.py  path/to/filter.py</code></pre>
+  <p>The host script (<code>runtime/python/andiya_python_host.py</code>) imports your module and loops on stdin. Wire format (little-endian, no JSON per frame):</p>
+  <table>
+    <tr><th>Direction</th><th>Header</th><th>Then</th></tr>
+    <tr><td>Andiya → plugin</td><td>magic ANFR, w, h, stride, format, timestamp, size</td><td>raw pixels</td></tr>
+    <tr><td>plugin → Andiya</td><td>magic ANRS, status, w, h, stride, format, size</td><td>raw pixels if status==0</td></tr>
+  </table>
+  <p>Your module only implements:</p>
+<pre><code>def process_frame(width, height, stride, pixel_format, timestamp_us, data):
+    # data is BGRA bytes, stride * height long
+    buffer = bytearray(data)
+    ...
+    return bytes(buffer)   # or None to bypass</code></pre>
+  <p>The grayscale example averages channels with video luma coefficients and leaves alpha alone. You may import NumPy/OpenCV inside that process; they never link into Andiya.exe.</p>
+  <div class="note">
+    <strong>Why not in-process Python?</strong>
+    Embedding CPython in a Qt GUI means GIL fights, crash-the-app bugs, and matching MSVC runtimes. A child process is slower per frame and much safer. Preview downscaling exists specifically because Python filters can be heavy.
+  </div>
+
+  <h2>9.6 Manifest</h2>
+  <p>Each plugin folder has <code>plugin.json</code>: id, name, vendor, version, type (native/python), entry (dll or py), capabilities, parameter schema. Validation lives in <code>PluginValidation.cpp</code>. Installers can be a folder copy or a signed bundle; Windows can show publisher certificate details. Isolation is about crashes, not an OS sandbox — a plugin process can still read the disk and network.</p>
+</section>
+
+<section class="chapter">
+  <h1>10. Library, captures, compare mode, workspace</h1>
+
+  <h2>10.1 Library and playlists</h2>
+  <p>Recent files and the playlist are <code>QVariantList</code> properties on the player, persisted with <code>QSettings</code>. <code>MediaLibraryPanel.qml</code> is a QML list. Video rows ask <code>ThumbnailProvider</code> for a poster: a hidden <code>QMediaPlayer</code> seeks, grabs one frame, writes a JPEG cache. Live streams skip that (no local file, no duration).</p>
+
+  <h2>10.2 Captures panel</h2>
+  <p><code>ScreenshotListModel</code> watches the capture directory with <code>QFileSystemWatcher</code>. It exposes latest-file metadata (size, dimensions, time) and supports remove-from-list vs delete-on-disk vs clear-all. Hidden paths are remembered in settings so “remove from app” survives a rescan.</p>
+  <p>Filenames are unique and include timestamp plus original/filtered plus a UUID. Writes use <code>QSaveFile</code> (atomic replace) so a crash mid-write does not leave a truncated PNG as the latest capture.</p>
+
+  <h2>10.3 Compare mode</h2>
+  <p>Shortcut <code>K</code> / CMP button calls <code>enterCompareMode()</code>. The player pauses if needed, grabs the current decoded image, writes cache PNGs (original + filtered), and exposes two URLs. <code>CompareView.qml</code> is an overlay on the media stage:</p>
+  <ul>
+    <li>left: untouched frame, Save</li>
+    <li>right: pipeline output, Save (disabled if no filter is on)</li>
+    <li>filmstrip: play/pause, previous/next frame, Live preview timer (~350 ms) while playing</li>
+  </ul>
+  <p>Live preview is throttled so a Python chain is not invoked every 16 ms. Export always goes through the capture pipeline at full resolution, not the 960 px preview.</p>
+
+  <h2>10.4 Bookmarks, A–B loop, batch export</h2>
+  <p>Bookmarks are a list of {position, note} on the player. A–B loop sets start/end timestamps and seeks back when playback crosses the end. Batch capture / bookmark export / image-folder export are queued in <code>ExportQueue</code> (cap 200 items) with progress properties QML binds to. Cancel keeps files already written.</p>
+
+  <h2>10.5 Workspace</h2>
+  <p><code>StudioController</code> is the “project / preferences” object: text scale, shortcut map, encrypted stream profiles (Windows DPAPI), plugin catalog HTTP client, workspace JSON import/export. The Workspace dialog is a tabbed Popup. Portable workspace files deliberately strip URL credentials and query strings — signed camera URLs should live in profiles, not in a file you email.</p>
+</section>
+
+<section class="chapter">
+  <h1>11. Persistence, threading, and diagnostics</h1>
+
+  <h2>11.1 QSettings</h2>
+  <p><code>QSettings</code> is a key-value store. On Windows this is typically the registry under HKCU\Software\Andiya\Andiya. Self-tests switch organization name so they cannot clobber your real settings.</p>
+  <p>Typical keys the player writes: theme, window geometry, volume, recent media, playlist, resume positions, capture folder, subtitle appearance, bookmarks, filter enable/order/strength/presets.</p>
+  <div class="analogy">
+    <strong>.NET analogue</strong>
+    <code>Properties.Settings.Default</code> or a small JSON file. There is no Entity Framework here. Lists are stored as <code>QVariantList</code> which Qt serializes for you.
+  </div>
+
+  <h2>11.2 Threading rules Andiya follows</h2>
+  <table>
+    <tr><th>Work</th><th>Thread</th></tr>
+    <tr><td>QML, PlayerController public methods</td><td>GUI / main</td></tr>
+    <tr><td>QMediaPlayer decode callbacks</td><td>Qt multimedia (then hop to player)</td></tr>
+    <tr><td>Filter pixel I/O</td><td>FilterPipeline worker thread + child process</td></tr>
+    <tr><td>PNG compress/write</td><td>QThreadPool global instance</td></tr>
+    <tr><td>Thumbnails</td><td>ThumbnailProvider’s internal player</td></tr>
+  </table>
+  <p>Never create a <code>QProcess</code> on thread A and destroy it on thread B. FilterPipeline uses <code>thread_local</code> hosts on the worker and <code>moveToThread</code> so ownership stays put. Completion lambdas use <code>QPointer</code> guards so a destroyed PlayerController does not get called after Close.</p>
+
+  <h2>11.3 Diagnostics</h2>
+  <p><code>player.diagnostics()</code> returns a map: backend name, codecs from metadata, buffer %, decoded frame count, skipped previews, last filter error. Qt does not expose “which DXVA decoder is active” through the APIs Andiya uses; the UI says that honestly instead of inventing a GPU name.</p>
+</section>
+
+<section class="chapter">
+  <h1>12. How to change the app yourself</h1>
+  <p>Four recipes. Each assumes you can rebuild (<code>cmake --build build --config Release</code>) and that you re-run the new exe, not an old shortcut.</p>
+
+  <h2>12.1 Add a QML-only button that calls existing C++</h2>
+  <p>Goal: a button that captures the original frame.</p>
+  <ol>
+    <li>Open <code>qml/components/TimelineControls.qml</code>.</li>
+    <li>Next to the other <code>IconButton</code>s, add:</li>
+  </ol>
+<pre><code>IconButton {
+    glyph: "PNG"
+    toolTip: "Save untouched frame (Ctrl+Shift+S)"
+    enabled: player.hasMedia
+    onClicked: player.captureOriginalFrame()
+}</code></pre>
+  <p>No C++ change. <code>captureOriginalFrame</code> is already <code>Q_INVOKABLE</code>.</p>
+
+  <h2>12.2 Add a new C++ property and bind it</h2>
+  <p>Goal: show the number of decoded frames in the timeline.</p>
+  <p>In <code>PlayerController.h</code>:</p>
+<pre><code>Q_PROPERTY(int decodedFrames READ decodedFrames NOTIFY diagnosticsChanged)
+// ...
+[[nodiscard]] int decodedFrames() const { return int(m_decodedFrames); }</code></pre>
+  <p><code>m_decodedFrames</code> already exists and <code>diagnosticsChanged</code> already fires from the preview callback. In QML:</p>
+<pre><code>Text {
+    text: "frames " + player.decodedFrames
+    color: Theme.textMuted
+    font.pixelSize: 9
+}</code></pre>
+  <p>Rebuild. If QML says the property is undefined, moc did not see the header (clean rebuild) or the name is misspelled (QML is case-sensitive).</p>
+
+  <h2>12.3 Add a shortcut</h2>
+  <p>In <code>qml/Main.qml</code> next to the other Shortcut objects:</p>
+<pre><code>Shortcut {
+    sequence: "Ctrl+L"
+    onActivated: window.openLibraryPanel("Library")
+}</code></pre>
+  <p>Also add a row to <code>qml/ShortcutsDialog.qml</code> so it appears in the cheat sheet. If the key is a letter, consider <code>enabled: window.plainShortcutEnabled()</code> so it does not fire while typing a URL.</p>
+
+  <h2>12.4 Add a Python filter</h2>
+  <ol>
+    <li>Create a folder with <code>plugin.json</code> and <code>filter.py</code>.</li>
+    <li>Implement <code>process_frame(...)</code> as in <code>plugins/python-grayscale/filter.py</code>.</li>
+    <li>In the app: Tools → install plugin folder (or copy next to the exe under <code>plugins/</code> and reload).</li>
+    <li>Enable it. Open Compare (K) to see original vs filtered. Save PNG from either pane.</li>
+  </ol>
+  <p>Minimal invert filter (teaching):</p>
+<pre><code>def process_frame(width, height, stride, pixel_format, timestamp_us, data):
+    if pixel_format != 1:
+        return None
+    out = bytearray(data)
+    for y in range(height):
+        row = y * stride
+        for x in range(width):
+            i = row + x * 4
+            out[i] = 255 - out[i]         # B
+            out[i+1] = 255 - out[i+1]     # G
+            out[i+2] = 255 - out[i+2]     # R
+    return bytes(out)</code></pre>
+  <p>Native version: copy <code>docs/examples/native-invert</code> or <code>plugins/soft-contrast</code>, keep <code>andiya_plugin_initialize</code> exported, process BGRA in place or into the provided output buffer, return 0 on success.</p>
+
+  <h2>12.5 Where not to put new features</h2>
+  <table>
+    <tr><th>Feature idea</th><th>Put it here</th></tr>
+    <tr><td>New button, layout, theme color</td><td>QML + Theme.qml</td></tr>
+    <tr><td>New playback behaviour</td><td>PlayerController</td></tr>
+    <tr><td>New plugin setting</td><td>PluginListModel + Tools QML</td></tr>
+    <tr><td>New network catalog field</td><td>StudioController</td></tr>
+    <tr><td>New pixel algorithm</td><td>A plugin, not the player</td></tr>
+    <tr><td>New streaming protocol</td><td>Qt Multimedia / FFmpeg, plus a URL in openMedia — not a plugin</td></tr>
+  </table>
+</section>
+
+<section class="chapter">
+  <h1>13. Glossary and further reading</h1>
+
+  <h2>13.1 Glossary</h2>
+  <table>
+    <tr><th>Term</th><th>Meaning in this codebase</th></tr>
+    <tr><td>QObject</td><td>Base class with signals, properties, parent ownership</td></tr>
+    <tr><td>moc</td><td>Meta-object compiler; generated from Q_OBJECT headers</td></tr>
+    <tr><td>Q_PROPERTY</td><td>Bindable field QML can read/write</td></tr>
+    <tr><td>Q_INVOKABLE</td><td>C++ method QML can call</td></tr>
+    <tr><td>signal / slot</td><td>Event and handler, possibly cross-thread</td></tr>
+    <tr><td>context property</td><td>Named C++ object injected into all QML</td></tr>
+    <tr><td>QML module</td><td>Compiled set of .qml files under a URI (Andiya 1.0)</td></tr>
+    <tr><td>VideoOutput</td><td>QML item that displays frames via a QVideoSink</td></tr>
+    <tr><td>QVideoSink</td><td>C++ object you push QVideoFrame into</td></tr>
+    <tr><td>FilterPipeline</td><td>Background serial worker that runs the plugin stack</td></tr>
+    <tr><td>ABI plugin</td><td>Native shared library exporting andiya_plugin_initialize</td></tr>
+    <tr><td>Python host</td><td>andiya_python_host.py speaking ANFR/ANRS frames on stdio</td></tr>
+    <tr><td>QSettings</td><td>Persisted key-value user state</td></tr>
+    <tr><td>windeployqt</td><td>Copies Qt runtime files next to the exe</td></tr>
+  </table>
+
+  <h2>13.2 Suggested Qt reading order (official docs)</h2>
+  <ol>
+    <li>Qt QML tutorial — “Your First QML Application”</li>
+    <li>The QObject model and signals &amp; slots</li>
+    <li>Qt Quick Controls</li>
+    <li>Qt Multimedia QMediaPlayer / VideoOutput</li>
+    <li>QAbstractListModel for QML</li>
+    <li>Resource system and qt_add_qml_module</li>
+  </ol>
+  <p>You do not need Qt Widgets, Qt Network (beyond Studio catalogs), or Qt 3D to understand Andiya.</p>
+
+  <h2>13.3 Files to open in this order when exploring the repo</h2>
+  <ol>
+    <li><code>src/main.cpp</code> — who exists</li>
+    <li><code>qml/Main.qml</code> — how the shell is laid out</li>
+    <li><code>src/player/PlayerController.h</code> — every UI-facing playback API</li>
+    <li><code>qml/components/MediaStage.qml</code> — video + empty state + compare host</li>
+    <li><code>qml/components/TimelineControls.qml</code> — transport bindings</li>
+    <li><code>src/plugins/PluginListModel.h</code> and <code>FilterPipeline.cpp</code></li>
+    <li><code>include/andiya/plugin_api.h</code> plus one example plugin</li>
+    <li><code>PLUGIN_DEVELOPMENT.md</code> when you write your own filter</li>
+  </ol>
+
+  <h2>13.4 A last C#/Python picture of one click</h2>
+  <p>User presses Space.</p>
+  <ol>
+    <li>QML <code>Shortcut</code> runs <code>player.togglePlayback()</code> (like calling a ViewModel command).</li>
+    <li>C++ <code>togglePlayback</code> calls <code>QMediaPlayer::pause</code> or <code>play</code>.</li>
+    <li>The player eventually emits state changes; Andiya emits <code>playingChanged</code>.</li>
+    <li>Every QML <code>player.playing</code> binding updates: the glyph on the play button flips, the overlay play icon changes, compare live-preview timer may start.</li>
+    <li>If live filters are on, each new decoded frame is scaled, sent to a child process, blended by strength, and pushed into the VideoOutput sink.</li>
+  </ol>
+  <p>That loop — <strong>input → invokable → Qt backend → signal → binding</strong> — is the entire application, repeated for Open, Seek, Capture, Tools, Workspace, and streams.</p>
+
+  <footer class="pagefoot">
+    Andiya internals study guide · Qt 6.8 / QML / C++20 · Companion to the source tree, not official Qt documentation.
+  </footer>
+</section>
+
+</body>
+</html>
