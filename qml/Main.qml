@@ -75,8 +75,7 @@ ApplicationWindow {
     }
 
     function plainShortcutEnabled() {
-        // Only suppress letter/arrow keys while a text field is focused.
-        // Buttons are tab-focusable, but they must not steal S/K/Space/etc.
+        // Leave unmodified keys to the editor while typing.
         const item = activeFocusItem
         return !item || item.cursorPosition === undefined
     }
@@ -122,6 +121,17 @@ ApplicationWindow {
         border.width: window.visibility === Window.FullScreen ? 0 : 1
         border.color: Theme.borderSoft
         clip: true
+
+        TapHandler {
+            // End text editing when the user clicks elsewhere in the player.
+            onTapped: function(point) {
+                const item = window.activeFocusItem
+                if (item && item.cursorPosition !== undefined
+                        && !item.contains(item.mapFromItem(appFrame, point.position))) {
+                    item.focus = false
+                }
+            }
+        }
 
         Item {
             id: titleBar
@@ -180,10 +190,9 @@ ApplicationWindow {
                         font.letterSpacing: -0.7
                     }
                     Text {
-                        text: "MEDIA STUDIO"
-                        color: Theme.textMuted
-                        font.pixelSize: Theme.fontScale * 8
-                        font.letterSpacing: 1.8
+                        text: "Version " + Qt.application.version
+                        color: Theme.textSecondary
+                        font.pixelSize: Theme.fontScale * 11
                     }
                 }
 
@@ -333,8 +342,12 @@ ApplicationWindow {
                     NavRailButton {
                         glyph: "\u25B6"
                         label: "Playing"
-                        active: !libraryPanel.visible
-                        onClicked: window.libraryOpen = false
+                        active: !window.libraryOpen && !window.pluginsOpen && !window.screenshotsOpen
+                        onClicked: {
+                            window.libraryOpen = false
+                            window.pluginsOpen = false
+                            window.screenshotsOpen = false
+                        }
                     }
                     NavRailButton {
                         glyph: "\u25C7"
@@ -663,7 +676,15 @@ ApplicationWindow {
     Shortcut { sequence: studio.shortcuts.workspace; onActivated: workspaceDialog.open() }
     Shortcut { sequence: "Ctrl+O"; onActivated: openDialog.open() }
     Shortcut { sequence: "Ctrl+U"; onActivated: networkStreamDialog.openWith("") }
-    Shortcut { sequence: studio.shortcuts.play; enabled: window.plainShortcutEnabled(); onActivated: { player.togglePlayback(); mediaStage.revealOverlay() } }
+    Shortcut {
+        sequence: studio.shortcuts.play
+        enabled: player.hasMedia && !player.imageMode && window.plainShortcutEnabled()
+        autoRepeat: false
+        onActivated: {
+            player.togglePlayback()
+            mediaStage.revealOverlay()
+        }
+    }
     Shortcut { sequence: studio.shortcuts.capture; enabled: window.plainShortcutEnabled(); onActivated: player.captureFrame() }
     Shortcut { sequence: "C"; enabled: window.plainShortcutEnabled(); onActivated: player.captureOriginalFrame() }
     Shortcut { sequence: "Ctrl+Shift+S"; onActivated: player.captureOriginalFrame() }

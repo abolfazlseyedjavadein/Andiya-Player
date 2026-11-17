@@ -125,7 +125,7 @@ Popup {
 
         Text {
             Layout.fillWidth: true
-            text: "Andiya 0.1  |  Open-source media core"
+            text: "Andiya " + Qt.application.version + "  |  Open-source media core"
             color: Theme.textMuted
             font.pixelSize: Theme.fontScale * 9
             horizontalAlignment: Text.AlignHCenter

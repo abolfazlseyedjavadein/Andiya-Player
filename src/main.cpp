@@ -21,6 +21,7 @@
 int main(int argc, char *argv[])
 {
     QGuiApplication::setApplicationName(QStringLiteral("Andiya"));
+    QGuiApplication::setApplicationVersion(QStringLiteral(ANDIYA_VERSION));
     QGuiApplication::setApplicationDisplayName(QStringLiteral("Andiya Media Player"));
     QGuiApplication::setOrganizationName(QStringLiteral("Andiya"));
     QGuiApplication::setOrganizationDomain(QStringLiteral("andiya.io"));

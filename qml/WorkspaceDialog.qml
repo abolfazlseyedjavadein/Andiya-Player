@@ -297,7 +297,7 @@ Dialog {
                         }
                     }
                     Button { text: "Reset shortcuts"; onClicked: studio.resetShortcuts() }
-                    Label { text: "Use Tab to move between controls and Enter or Space to activate focused buttons. Single-key playback commands are paused while you type."; Layout.fillWidth: true; wrapMode: Text.WordWrap }
+                    Label { text: "Use Tab to move between controls and Enter to activate focused buttons. Playback shortcuts are paused while you type."; Layout.fillWidth: true; wrapMode: Text.WordWrap }
                 }
             }
         }

@@ -231,8 +231,7 @@ Item {
                     spacing: 8
 
                     IconButton {
-                        glyph: player.playing ? "\u2016" : "\u25B6"
-                        toolTip: player.playing ? "Pause" : "Play"
+                        label: player.playing ? "Pause" : "Play"
                         darkSurface: true
                         enabled: !player.imageMode
                         onClicked: {

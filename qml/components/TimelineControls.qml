@@ -79,8 +79,7 @@ GlassPanel {
             }
 
             IconButton {
-                glyph: player.playing ? "\u2016" : "\u25B6"
-                toolTip: player.playing ? "Pause" : "Play"
+                label: player.playing ? "Pause" : "Play"
                 prominent: true
                 buttonSize: 44
                 enabled: player.hasMedia && !player.imageMode

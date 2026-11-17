@@ -5,7 +5,7 @@ MenuItem {
     id: control
 
     implicitWidth: Math.max(260, contentItem.implicitWidth + leftPadding + rightPadding + (control.subMenu ? 18 : 0))
-    implicitHeight: Math.max(34, contentItem.implicitHeight + topPadding + bottomPadding)
+    implicitHeight: visible ? Math.max(34, contentItem.implicitHeight + topPadding + bottomPadding) : 0
     padding: 8
     leftPadding: 14
     rightPadding: 16
@@ -15,7 +15,7 @@ MenuItem {
         text: control.text
         font: control.font
         color: control.enabled ? Theme.text : Theme.textMuted
-        wrapMode: Text.NoWrap
+        wrapMode: Text.Wrap
         elide: Text.ElideNone
         verticalAlignment: Text.AlignVCenter
         rightPadding: control.subMenu ? 16 : 0

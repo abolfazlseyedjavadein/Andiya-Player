@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.24)
 
-project(Andiya VERSION 0.1.5 LANGUAGES CXX)
+project(Andiya VERSION 0.1.6 LANGUAGES CXX)
 
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -125,6 +125,7 @@ target_link_libraries(Andiya PRIVATE
     Qt6::QuickControls2
     Qt6::Multimedia
 )
+target_compile_definitions(Andiya PRIVATE ANDIYA_VERSION="${PROJECT_VERSION}")
 
 add_executable(AndiyaAudioProbe EXCLUDE_FROM_ALL
     tools/audio_probe.cpp
