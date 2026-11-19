@@ -47,6 +47,7 @@ the original frame and **K** opens comparison.
 - [Release packaging](docs/PACKAGING.md): artifacts, install layouts and release status.
 - [Create a plugin](PLUGIN_DEVELOPMENT.md): runnable Python and C++ starters.
 - [Plugin reference](docs/PLUGIN_REFERENCE.md): manifest, API, trust and troubleshooting.
+- [Redaction Blur walkthrough](PLUGIN_DEVELOPMENT.md#a7-add-settings-and-a-drawable-rectangle) and [Word guide](docs/Redaction-Blur-Guide.docx).
 - [Implementation notes](docs/IMPLEMENTATION.md): behavior, limits and verification.
 - [Third-party notices](THIRD_PARTY.md): dependencies and distribution requirements.
 

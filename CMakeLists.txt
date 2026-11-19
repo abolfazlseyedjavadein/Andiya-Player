@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.24)
 
-project(Andiya VERSION 0.1.6 LANGUAGES CXX)
+project(Andiya VERSION 0.1.7 LANGUAGES CXX)
 
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -42,6 +42,8 @@ set_source_files_properties(qml/components/ThemedMenu.qml PROPERTIES QT_RESOURCE
 set_source_files_properties(qml/components/ThemedMenuItem.qml PROPERTIES QT_RESOURCE_ALIAS ThemedMenuItem.qml)
 set_source_files_properties(qml/components/ThemedMenuSeparator.qml PROPERTIES QT_RESOURCE_ALIAS ThemedMenuSeparator.qml)
 set_source_files_properties(qml/components/MediaStage.qml PROPERTIES QT_RESOURCE_ALIAS MediaStage.qml)
+set_source_files_properties(qml/components/PluginParameters.qml PROPERTIES QT_RESOURCE_ALIAS PluginParameters.qml)
+set_source_files_properties(qml/components/PluginRectangleEditor.qml PROPERTIES QT_RESOURCE_ALIAS PluginRectangleEditor.qml)
 set_source_files_properties(qml/components/PlaybackOverlay.qml PROPERTIES QT_RESOURCE_ALIAS PlaybackOverlay.qml)
 set_source_files_properties(qml/components/CompareView.qml PROPERTIES QT_RESOURCE_ALIAS CompareView.qml)
 set_source_files_properties(qml/components/TimelineControls.qml PROPERTIES QT_RESOURCE_ALIAS TimelineControls.qml)
@@ -102,6 +104,8 @@ qt_add_qml_module(Andiya
         qml/components/ThemedMenuItem.qml
         qml/components/ThemedMenuSeparator.qml
         qml/components/MediaStage.qml
+        qml/components/PluginParameters.qml
+        qml/components/PluginRectangleEditor.qml
         qml/components/PlaybackOverlay.qml
         qml/components/CompareView.qml
         qml/components/TimelineControls.qml

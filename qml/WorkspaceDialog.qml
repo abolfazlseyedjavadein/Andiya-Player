@@ -33,6 +33,9 @@ Dialog {
         }
     }
     property string message: ""
+    required property bool canDrawRectangle
+    signal rectangleRequested(var plugin)
+    signal removePluginRequested(string pluginId, string pluginName)
     contentItem: ColumnLayout {
         spacing: 12
         TabBar {
@@ -168,27 +171,18 @@ Dialog {
                                 Label { text: "Requested access: " + (card.modelData.permissions || []).join(", "); Layout.fillWidth: true; wrapMode: Text.WordWrap }
                                 Label { visible: !!card.modelData.error; text: card.modelData.error || ""; color: Theme.red; wrapMode: Text.WordWrap; Layout.fillWidth: true }
                                 RowLayout {
-                                    Label { text: "Strength" }
-                                    Slider { Layout.fillWidth: true; from: 0; to: 1; value: card.modelData.strength; onPressedChanged: if(!pressed)pluginModel.setStrength(card.modelData.index,value) }
-                                    Label { text: Math.round(card.modelData.strength * 100) + "%" }
                                     Button { text: "Restart"; enabled: card.modelData.enabled; onClicked: pluginModel.setPluginEnabled(card.modelData.index,true) }
                                     Button { text: "Rollback"; onClicked: { const error=pluginModel.rollbackPlugin(card.modelData.id); root.message=error || "Previous plugin version restored." } }
-                                }
-                                Repeater {
-                                    model: card.modelData.parameters || []
-                                    RowLayout {
-                                        required property var modelData
-                                        Layout.fillWidth: true
-                                        Label { text: modelData.label || modelData.key }
-                                        Slider {
-                                            Layout.fillWidth: true
-                                            from: modelData.min === undefined ? 0 : modelData.min
-                                            to: modelData.max === undefined ? 1 : modelData.max
-                                            stepSize: modelData.step || 0.01
-                                            value: card.modelData.values[modelData.key] === undefined ? modelData.default : card.modelData.values[modelData.key]
-                                            onPressedChanged: if(!pressed)pluginModel.setParameter(card.modelData.index,modelData.key,value)
-                                        }
+                                    Button {
+                                        text: "Remove"
+                                        onClicked: root.removePluginRequested(card.modelData.id, card.modelData.name)
                                     }
+                                }
+                                PluginParameters {
+                                    Layout.fillWidth: true
+                                    plugin: card.modelData
+                                    canDrawRectangle: root.canDrawRectangle
+                                    onRectangleRequested: function(plugin) { root.rectangleRequested(plugin) }
                                 }
                             }
                         }

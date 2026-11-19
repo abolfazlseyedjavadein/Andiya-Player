@@ -124,6 +124,60 @@ bridge is next to the app in `python_runtime/andiya_python_host.py`.
 Installation **copies** the folder. After you edit `filter.py`, install the
 folder again. **Rescan** does not copy your edits.
 
+### A7. Add settings and a drawable rectangle
+
+Use Andiya 0.1.7 or newer for the settings popup and drawing tool. Copy
+`plugin.json` and `filter.py` into a development folder. The files are in
+[plugins/redaction-blur](plugins/redaction-blur/) in the source checkout and
+`docs/examples/redaction-blur` in the installed documentation.
+
+1. Give a new plugin its own manifest `id` and keep it stable across versions.
+   For a Python filter, set `execution` to `python`, `runtime` to `process`,
+   and `entrypoint` to `filter.py`.
+2. Declare a `parameters` array. Each entry defines a `key` for the worker,
+   a human-readable `label`, and the slider's `min`, `max`, `default`, and
+   `step`. Andiya generates **Settings** on the plugin's **Tools** card and
+   shows the same values in **Workspace → Filters**.
+3. Add the optional `rectangle` mapping. This example uses parameter keys with
+   the same names as the rectangle fields.
+
+   ```json
+   "rectangle": {"x": "x", "y": "y", "width": "width", "height": "height"}
+   ```
+
+   The four values must point to distinct numeric parameters. X and Y range
+   from 0 to 1. Width and height have a maximum of 1 and can declare a minimum.
+   Redaction Blur uses a minimum of 0.01 for each size. Its `radius` parameter
+   controls the blur in pixels and is independent of the drawing tool.
+4. Read those keys in `configure(parameters)`. In `process_frame`, convert
+   the normalized coordinates to the supplied frame's pixel dimensions.
+   The example rounds the top and left down, rounds the bottom and right up,
+   clamps the box to the frame, and blurs only the pixels inside it. Return a
+   same-size BGRA buffer and preserve alpha and pixels outside the box.
+
+To try it, install the folder through **Workspace → Filters → Install
+folder…**, approve it, and enable it. With an image or video loaded, open
+**Tools → Redaction Blur → Settings → Draw rectangle**. Drag outside the
+existing box to draw a new one, drag inside to move it, or drag the lower-right
+corner to resize it. **Apply rectangle** saves all four coordinates together.
+Andiya maps the picture area to normalized coordinates, accounting for black
+bars. The worker receives those four values through its usual configuration.
+The plugin supplies the manifest and frame processing. Andiya owns the popup,
+overlay, and settings storage.
+
+Keep **Strength** at 100% so the filtered capture uses the full effect.
+Press **K** to compare the result and use **Save filtered**, or press **S** from
+the player. Review the exported PNG before sharing. Use an opaque fill when
+sensitive text must be fully concealed.
+
+### Remove or reinstall a plugin
+
+Click **Remove** on any plugin card in **Tools** or **Workspace → Filters** and
+confirm. Andiya removes user-installed files and their rollback copy. Removal
+of a bundled plugin applies to the current Andiya profile and persists across
+rescans. Use **Install plugin** or **Install folder…** with the plugin folder
+to add it back.
+
 ---
 
 ## Tutorial B — C/C++ plugin, step by step

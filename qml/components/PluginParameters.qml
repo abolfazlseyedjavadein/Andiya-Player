@@ -1,0 +1,75 @@
+import QtQuick
+import QtQuick.Controls
+import QtQuick.Layouts
+
+ColumnLayout {
+    id: root
+
+    required property var plugin
+    required property bool canDrawRectangle
+    signal rectangleRequested(var plugin)
+
+    Button {
+        text: "Draw rectangle"
+        visible: !!root.plugin?.rectangle && root.plugin.available
+        enabled: root.canDrawRectangle
+        onClicked: root.rectangleRequested(root.plugin)
+    }
+
+    RowLayout {
+        Layout.fillWidth: true
+        visible: !!root.plugin
+        Label { text: "Strength" }
+        Slider {
+            id: strength
+            Layout.fillWidth: true
+            Accessible.name: "Strength"
+            from: 0
+            to: 1
+            value: root.plugin?.strength ?? 1
+            onMoved: if (!pressed) commit()
+            onPressedChanged: if (!pressed) commit()
+
+            function commit() {
+                if (root.plugin && value !== root.plugin.strength)
+                    pluginModel.setStrength(root.plugin.index, value)
+            }
+        }
+        Label { text: Math.round(strength.value * 100) + "%" }
+    }
+
+    Repeater {
+        model: root.plugin?.parameters ?? []
+        RowLayout {
+            id: parameter
+
+            required property var modelData
+            readonly property real savedValue: root.plugin?.values[modelData.key] ?? modelData.default ?? 0
+            Layout.fillWidth: true
+
+            Label { text: parameter.modelData.label || parameter.modelData.key }
+            Slider {
+                id: slider
+                Layout.fillWidth: true
+                Accessible.name: parameter.modelData.label || parameter.modelData.key
+                from: parameter.modelData.min ?? 0
+                to: parameter.modelData.max ?? 1
+                stepSize: parameter.modelData.step || 0.01
+                value: parameter.savedValue
+                onMoved: if (!pressed) commit()
+                onPressedChanged: if (!pressed) commit()
+
+                function commit() {
+                    if (root.plugin && value !== parameter.savedValue)
+                        pluginModel.setParameter(root.plugin.index, parameter.modelData.key, value)
+                }
+            }
+            Label {
+                text: Number(slider.value.toFixed(slider.stepSize >= 1 ? 0 : 3)).toString()
+                horizontalAlignment: Text.AlignRight
+                Layout.minimumWidth: 44
+            }
+        }
+    }
+
+}

@@ -16,8 +16,48 @@ GlassPanel {
     property bool fullscreenMode: false
     property real brightness: 0
     property real contrast: 0
+    property string rectanglePluginId: ""
+    property url rectangleSource
+    readonly property rect picture: player.imageMode
+        ? Qt.rect(stillImage.x + (stillImage.width - stillImage.paintedWidth) / 2,
+                  stillImage.y + (stillImage.height - stillImage.paintedHeight) / 2,
+                  stillImage.paintedWidth, stillImage.paintedHeight)
+        : Qt.rect(videoOutput.x + videoOutput.contentRect.x, videoOutput.y + videoOutput.contentRect.y,
+                  videoOutput.contentRect.width, videoOutput.contentRect.height)
+    readonly property bool canDrawRectangle: player.hasMedia && (player.imageMode || player.mediaKind === "Video")
+                                            && picture.width > 0 && picture.height > 0
+    signal rectangleApplyFailed()
 
     function revealOverlay() { overlay.reveal() }
+
+    function startRectangle(plugin) {
+        if (!canDrawRectangle) return
+        if (player.compareModeActive) player.exitCompareMode()
+        if (player.playing) player.togglePlayback()
+        singleClickTimer.stop()
+        const mapping = plugin.rectangle
+        const values = plugin.values
+        const widthParameter = plugin.parameters.find(parameter => parameter.key === mapping.width)
+        const heightParameter = plugin.parameters.find(parameter => parameter.key === mapping.height)
+        rectangleEditor.start(Qt.rect(values[mapping.x], values[mapping.y],
+                                      values[mapping.width], values[mapping.height]),
+                              widthParameter.min ?? 0, heightParameter.min ?? 0)
+        rectangleSource = player.source
+        rectanglePluginId = plugin.id
+    }
+
+    onCanDrawRectangleChanged: if (!canDrawRectangle) rectanglePluginId = ""
+
+    Connections {
+        target: player
+        function onMediaChanged() {
+            if (root.rectanglePluginId && root.rectangleSource.toString() !== player.source.toString())
+                root.rectanglePluginId = ""
+        }
+        function onCompareModeChanged() {
+            if (player.compareModeActive) root.rectanglePluginId = ""
+        }
+    }
 
     clip: true
     radius: fullscreenMode ? 0 : Theme.radiusLarge
@@ -87,6 +127,7 @@ GlassPanel {
     }
 
     Image {
+        id: stillImage
         anchors.fill: parent
         anchors.margins: root.fullscreenMode ? 0 : 20
         visible: player.imageMode
@@ -519,7 +560,7 @@ GlassPanel {
 
     MouseArea {
         anchors.fill: parent
-        enabled: player.hasMedia
+        enabled: player.hasMedia && !root.rectanglePluginId
         acceptedButtons: Qt.LeftButton | Qt.RightButton
         propagateComposedEvents: true
         cursorShape: root.fullscreenMode && !overlay.shown ? Qt.BlankCursor : Qt.ArrowCursor
@@ -551,7 +592,7 @@ GlassPanel {
         id: overlay
         anchors.fill: parent
         z: 40
-        active: root.fullscreenMode && player.hasMedia
+        active: root.fullscreenMode && player.hasMedia && !root.rectanglePluginId
         onExitFullscreenRequested: root.fullscreenRequested()
         onSubtitleRequested: root.subtitleRequested()
     }
@@ -559,5 +600,20 @@ GlassPanel {
     CompareView {
         anchors.fill: parent
         z: 50
+    }
+
+    PluginRectangleEditor {
+        id: rectangleEditor
+        anchors.fill: parent
+        z: 60
+        visible: root.rectanglePluginId.length > 0
+        picture: root.picture
+        onCanceled: root.rectanglePluginId = ""
+        onAccepted: function(region) {
+            const id = root.rectanglePluginId
+            root.rectanglePluginId = ""
+            if (!pluginModel.setRectangle(id, region.x, region.y, region.width, region.height))
+                root.rectangleApplyFailed()
+        }
     }
 }

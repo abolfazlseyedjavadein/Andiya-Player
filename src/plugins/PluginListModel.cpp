@@ -9,12 +9,35 @@
 #include <QRegularExpression>
 #include <QSet>
 #include <QStandardPaths>
+#include <QTemporaryDir>
 #include <QUuid>
 #include <QSettings>
 #include <algorithm>
 #include <cmath>
 
 #include <utility>
+
+namespace {
+QDir userPluginDirectory()
+{
+    return QDir(QStandardPaths::writableLocation(QStandardPaths::AppDataLocation) + "/plugins");
+}
+
+bool removePluginFiles(const QDir &directory)
+{
+    bool removed = true;
+    const auto entries = directory.entryInfoList(QDir::AllEntries | QDir::NoDotAndDotDot
+                                                  | QDir::Hidden | QDir::System);
+    for (const auto &entry : entries) {
+        const QString path = entry.absoluteFilePath();
+        const bool success = entry.isJunction() ? directory.rmdir(path)
+            : entry.isDir() && !entry.isSymLink() ? removePluginFiles(QDir(path))
+            : QFile::remove(path);
+        removed = success && removed;
+    }
+    return removed && QDir().rmdir(directory.absolutePath());
+}
+}
 
 PluginListModel::PluginListModel(QObject *parent)
     : QAbstractListModel(parent)
@@ -138,9 +161,7 @@ QString PluginListModel::installPlugin(const QUrl &directoryUrl)
     }
 
 
-    const QString pluginRoot = QDir(QStandardPaths::writableLocation(
-                                        QStandardPaths::AppDataLocation))
-                                   .filePath(QStringLiteral("plugins"));
+    const QString pluginRoot = userPluginDirectory().absolutePath();
     if (!QDir().mkpath(pluginRoot)) {
         return QStringLiteral("Andiya could not create its user plugin directory.");
     }
@@ -177,7 +198,71 @@ QString PluginListModel::installPlugin(const QUrl &directoryUrl)
         return QStringLiteral("Andiya could not finish installing the plugin.");
     }
 
+    QSettings settings;
+    auto removed = settings.value("plugins/removed").toStringList();
+    if (removed.removeAll(id) > 0)
+        settings.setValue("plugins/removed", removed);
     reload();
+    return {};
+}
+
+QString PluginListModel::removePlugin(const QString &id)
+{
+    const auto plugin = std::find_if(m_plugins.cbegin(), m_plugins.cend(), [&id](const auto &entry) {
+        return entry.id == id;
+    });
+    if (plugin == m_plugins.cend()) return "Plugin not found.";
+
+    const auto forgetPlugin = [this, &id] {
+        QSettings settings;
+        auto removed = settings.value("plugins/removed").toStringList();
+        if (!removed.contains(id)) {
+            removed.append(id);
+            settings.setValue("plugins/removed", removed);
+        }
+        settings.remove("plugins/approved/" + id);
+        reload();
+    };
+
+    if (plugin->installedFolder.isEmpty()) {
+        emit maintenanceRequested();
+        forgetPlugin();
+        return {};
+    }
+
+    QDir root = userPluginDirectory();
+    const QString current = root.filePath(plugin->installedFolder);
+    const QFileInfo installed(current);
+    if (!installed.isDir() || installed.isSymLink() || installed.isJunction()
+        || QFileInfo(installed.canonicalPath()) != QFileInfo(root.canonicalPath()))
+        return "The installed plugin folder could not be found safely.";
+
+    const QFileInfo backup(root.filePath(".rollback/" + plugin->installedFolder));
+    const QFileInfo backupParent(backup.absolutePath());
+    const bool hasBackup = backup.exists() || backup.isSymLink() || backup.isJunction();
+    if (hasBackup && (backup.isSymLink() || backup.isJunction()
+                      || backupParent.isSymLink() || backupParent.isJunction()
+                      || QFileInfo(backupParent.canonicalPath()) != QFileInfo(root.canonicalPath())))
+        return "The plugin rollback folder could not be found safely.";
+
+    QTemporaryDir holding(root.filePath(".removing-XXXXXX"));
+    if (!holding.isValid()) return "Could not prepare to remove the plugin.";
+    const QString savedBackup = holding.filePath("previous");
+    emit maintenanceRequested();
+    if (hasBackup && !root.rename(backup.absoluteFilePath(), savedBackup))
+        return "Could not move the plugin's previous version.";
+    if (!root.rename(current, holding.filePath("current"))) {
+        if (hasBackup && !root.rename(savedBackup, backup.absoluteFilePath())) {
+            holding.setAutoRemove(false);
+            return "Could not remove the plugin or restore its previous version.";
+        }
+        return "Could not move the installed plugin.";
+    }
+
+    forgetPlugin();
+    holding.setAutoRemove(false);
+    if (!removePluginFiles(QDir(holding.path())))
+        return "Plugin removed, but some files could not be cleaned up.";
     return {};
 }
 
@@ -187,9 +272,8 @@ void PluginListModel::reload()
     beginResetModel();
     m_plugins.clear();
 
-    discoverDirectory(QDir(QStandardPaths::writableLocation(QStandardPaths::AppDataLocation))
-                          .filePath(QStringLiteral("plugins")));
-    discoverDirectory(QDir(QCoreApplication::applicationDirPath()).filePath(QStringLiteral("plugins")));
+    discoverDirectory(userPluginDirectory().absolutePath(), true);
+    discoverDirectory(QDir(QCoreApplication::applicationDirPath()).filePath(QStringLiteral("plugins")), false);
     const auto saved = QSettings().value("plugins/stack").toList();
     for (const auto &value : saved) {
         const auto entry = value.toMap();
@@ -252,14 +336,16 @@ bool PluginListModel::copyPluginDirectory(const QString &sourcePath,
     return true;
 }
 
-void PluginListModel::discoverDirectory(const QString &path)
+void PluginListModel::discoverDirectory(const QString &path, bool userInstalled)
 {
     const QDir root(path);
+    const auto removed = QSettings().value("plugins/removed").toStringList();
     for(const auto &directory:root.entryInfoList(QDir::Dirs|QDir::NoDotAndDotDot|QDir::NoSymLinks)) {
         if(directory.fileName().startsWith('.'))continue;
         const auto report=PluginValidation::inspect(directory.absoluteFilePath());
         const auto manifest=report.value("manifest").toMap();
         QString id=manifest.value("id",directory.fileName()).toString();
+        if (removed.contains(id)) continue;
         if(std::any_of(m_plugins.begin(),m_plugins.end(),[&](const auto &p){return p.id==id;}))continue;
         PluginEntry p;
         p.id=id;p.name=manifest.value("name",id).toString();p.vendor=manifest.value("vendor","Third party").toString();
@@ -267,11 +353,16 @@ void PluginListModel::discoverDirectory(const QString &path)
         p.accent=manifest.value("accent","#5CD6FF").toString();p.available=report.value("valid").toBool();
         p.imageFilter=true;p.pythonFilter=manifest.value("execution").toString()=="python";
         p.error=report.value("error").toString();p.path=report.value("path").toString();p.manifest=manifest;
+        if (userInstalled && !directory.isJunction()) p.installedFolder = directory.fileName();
         p.manifest["publisherStatus"]=report.value("publisherStatus");
         p.manifest["fingerprint"]=report.value("fingerprint");
         for(const auto &value:manifest.value("parameters").toList()) {
             const auto spec=value.toMap();p.parameters[spec.value("key").toString()]=spec.value("default");
         }
+        if (id == "example.redaction-blur" && manifest.value("version").toString() == "1.0.0"
+            && !manifest.contains("rectangle") && p.parameters.contains("x") && p.parameters.contains("y")
+            && p.parameters.contains("width") && p.parameters.contains("height"))
+            p.manifest["rectangle"] = QVariantMap{{"x", "x"}, {"y", "y"}, {"width", "width"}, {"height", "height"}};
         // Discovery never executes a plugin. Enabling is an explicit user decision.
         m_plugins.push_back(p);
     }
@@ -282,7 +373,9 @@ QVariantList PluginListModel::details() const {
     for (int i = 0; i < m_plugins.size(); ++i) {
         const auto &p = m_plugins[i];
         auto info = p.manifest;
+        info["id"] = p.id; info["name"] = p.name;
         info["index"] = i; info["enabled"] = p.enabled; info["available"] = p.available;
+        info["userInstalled"] = !p.installedFolder.isEmpty();
         info["strength"] = p.strength; info["values"] = p.parameters; info["error"] = p.error;
 
         result << info;
@@ -317,6 +410,37 @@ void PluginListModel::setParameter(int index, const QString &key, double value) 
         saveState(); emit filterStackChanged(); return;
     }
 }
+bool PluginListModel::setRectangle(const QString &id, double x, double y, double width, double height)
+{
+    if (!std::isfinite(x) || !std::isfinite(y) || !std::isfinite(width) || !std::isfinite(height)
+        || x < 0 || y < 0 || width <= 0 || height <= 0 || x + width > 1.000000001 || y + height > 1.000000001)
+        return false;
+
+    const auto plugin = std::find_if(m_plugins.begin(), m_plugins.end(), [&id](const auto &entry) {
+        return entry.id == id && entry.available;
+    });
+    if (plugin == m_plugins.end()) return false;
+
+    const auto mapping = plugin->manifest.value("rectangle").toMap();
+    const QVariantMap coordinates{{"x", x}, {"y", y}, {"width", width}, {"height", height}};
+    auto parameters = plugin->parameters;
+    const auto specs = plugin->manifest.value("parameters").toList();
+    for (auto coordinate = coordinates.cbegin(); coordinate != coordinates.cend(); ++coordinate) {
+        const auto key = mapping.value(coordinate.key()).toString();
+        const auto spec = std::find_if(specs.cbegin(), specs.cend(), [&key](const auto &entry) {
+            return entry.toMap().value("key").toString() == key;
+        });
+        if (spec == specs.cend() || coordinate.value().toDouble() + 1e-9 < spec->toMap().value("min").toDouble())
+            return false;
+        parameters[key] = coordinate.value();
+    }
+    if (parameters != plugin->parameters) {
+        plugin->parameters = parameters;
+        saveState();
+        emit filterStackChanged();
+    }
+    return true;
+}
 QStringList PluginListModel::presetNames() const { return QSettings().value("plugins/presets").toMap().keys(); }
 void PluginListModel::savePreset(const QString &name) {
     if (name.trimmed().isEmpty() || name.size() > 100) return;
@@ -336,7 +460,7 @@ void PluginListModel::deletePreset(const QString &name) {
 QString PluginListModel::rollbackPlugin(const QString &id) {
     static const QRegularExpression safe("^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$");
     if (!safe.match(id).hasMatch()) return "Invalid plugin ID.";
-    const QDir root(QStandardPaths::writableLocation(QStandardPaths::AppDataLocation) + "/plugins");
+    const QDir root = userPluginDirectory();
     const QString current = root.filePath(id), previous = root.filePath(".rollback/" + id);
     const QString swap = root.filePath(".rollback/swap-" + QUuid::createUuid().toString(QUuid::WithoutBraces));
     if (!QFileInfo::exists(previous)) return "No previous local version is available.";

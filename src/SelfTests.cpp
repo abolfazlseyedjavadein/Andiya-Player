@@ -275,6 +275,49 @@ int runSelfTests(const QString &directory) {
             restored=value.toMap().value("version").toString()=="1.0.0"&&!value.toMap().value("enabled").toBool();
         check(restored,"rollback version and disabled discovery");pass("local install, update and rollback");
 
+        const QString bundledId = "example.soft-contrast";
+        const auto hasPlugin = [&plugins](const QString &id) {
+            for (const auto &value : plugins.details())
+                if (value.toMap().value("id").toString() == id) return true;
+            return false;
+        };
+        check(hasPlugin(bundledId), "bundled plugin is available before removal");
+        check(plugins.removePlugin(bundledId).isEmpty(), "remove bundled plugin from the user profile");
+        plugins.reload();
+        check(!hasPlugin(bundledId), "bundled plugin stays removed after rescan");
+        check(PluginValidation::inspect(nativeDir).value("valid").toBool(), "shared package files remain available");
+        check(plugins.installPlugin(QUrl::fromLocalFile(nativeDir)).isEmpty(), "reinstall bundled plugin");
+        check(hasPlugin(bundledId), "reinstalled bundled plugin reappears");
+        check(plugins.removePlugin(bundledId).isEmpty(), "remove user copy of bundled plugin");
+        check(!hasPlugin(bundledId), "removal prevents the bundled copy from reappearing");
+        check(plugins.removePlugin("test.install").isEmpty(), "remove user-installed plugin");
+        check(!hasPlugin("test.install"), "removed plugin no longer discovered");
+        check(plugins.installPlugin(QUrl::fromLocalFile(folder)).isEmpty(), "reinstall removed plugin");
+        check(!plugins.rollbackPlugin("test.install").isEmpty(), "removal also clears the rollback copy");
+        check(plugins.removePlugin("test.install").isEmpty(), "remove reinstalled plugin");
+        pass("plugin removal, bundled plugin suppression, reinstall and rollback cleanup");
+
+        manifest["id"] = "example.redaction-blur";
+        manifest["version"] = "1.0.0";
+        QVariantList rectangleParameters;
+        for (const auto &key : {"x", "y", "width", "height"})
+            rectangleParameters << QVariantMap{{"key", key}, {"min", 0.0}, {"max", 1.0}, {"default", 0.1}};
+        manifest["parameters"] = rectangleParameters;
+        writeManifest();
+        check(plugins.installPlugin(QUrl::fromLocalFile(folder)).isEmpty(), "install legacy redaction plugin");
+        check(plugins.setRectangle("example.redaction-blur", 0.2, 0.3, 0.4, 0.5), "draw with the legacy manifest");
+        plugins.reload();
+        bool legacyRectangleSaved = false;
+        for (const auto &value : plugins.details()) {
+            const auto details = value.toMap();
+            if (details.value("id").toString() != "example.redaction-blur") continue;
+            legacyRectangleSaved = details.value("rectangle").toMap().size() == 4
+                && details.value("values").toMap().value("height").toDouble() == 0.5;
+        }
+        check(legacyRectangleSaved, "legacy rectangle mapping and parameters persist");
+        check(plugins.removePlugin("example.redaction-blur").isEmpty(), "remove legacy plugin fixture");
+        pass("legacy redaction rectangle and persistence");
+
         // A manually opened source must not inherit automatic playlist advancement.
         const auto secondPath=directory+"/second.avi",manualPath=directory+"/manual.avi";
         check(QFile::copy(video.toLocalFile(),secondPath)&&QFile::copy(video.toLocalFile(),manualPath),"create playlist fixtures");

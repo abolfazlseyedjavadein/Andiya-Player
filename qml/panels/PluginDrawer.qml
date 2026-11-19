@@ -5,6 +5,9 @@ import QtQuick.Layouts
 GlassPanel {
     id: root
 
+    signal settingsRequested(string pluginId)
+    signal removeRequested(string pluginId, string pluginName)
+
     signal closeRequested()
     signal installRequested()
 
@@ -228,9 +231,10 @@ GlassPanel {
                 required property bool available
                 required property string loadError
                 property color accentColor: accent
+                readonly property bool hasSettings: available && (pluginModel.details[index]?.parameters?.length ?? 0) > 0
 
                 width: listView.width
-                height: 126
+                height: Math.max(126, cardContent.implicitHeight + 26)
                 radius: Theme.radius
                 color: cardHover.hovered ? Theme.surfaceHover : Theme.surface
                 border.width: 1
@@ -240,6 +244,7 @@ GlassPanel {
                 Behavior on border.color { ColorAnimation { duration: Theme.animationFast } }
 
                 ColumnLayout {
+                    id: cardContent
                     anchors.fill: parent
                     anchors.margins: 13
                     spacing: 7
@@ -367,6 +372,23 @@ GlassPanel {
                             font.pixelSize: Theme.fontScale * 8
                             font.weight: Font.DemiBold
                             font.letterSpacing: 0.7
+                        }
+                    }
+
+                    RowLayout {
+                        Layout.alignment: Qt.AlignRight
+
+                        IconButton {
+                            label: "Settings"
+                            buttonSize: 28
+                            visible: card.hasSettings
+                            onClicked: root.settingsRequested(card.pluginId)
+                        }
+                        IconButton {
+                            label: "Remove"
+                            buttonSize: 28
+                            danger: true
+                            onClicked: root.removeRequested(card.pluginId, card.name)
                         }
                     }
                 }

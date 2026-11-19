@@ -416,6 +416,7 @@ ApplicationWindow {
                     onPluginsRequested: window.showRightSidebar("tools", true)
                     onFullscreenRequested: window.toggleFullscreen()
                     onSubtitleRequested: subtitleDialog.open()
+                    onRectangleApplyFailed: toast.show("Rectangle not applied", "Reopen the plugin settings and try again.")
                     fullscreenMode: window.visibility === Window.FullScreen
                     brightness: window.displayBrightness
                     contrast: window.displayContrast
@@ -463,6 +464,11 @@ ApplicationWindow {
                 opacity: visible ? 1 : 0
                 onCloseRequested: window.pluginsOpen = false
                 onInstallRequested: pluginFolderDialog.open()
+                onSettingsRequested: function(pluginId) {
+                    pluginSettings.pluginId = pluginId
+                    pluginSettings.open()
+                }
+                onRemoveRequested: function(pluginId, pluginName) { pluginRemoval.openFor(pluginId, pluginName) }
                 Behavior on Layout.preferredWidth {
                     NumberAnimation { duration: Theme.animation; easing.type: Easing.OutCubic }
                 }
@@ -619,7 +625,89 @@ ApplicationWindow {
             pluginApproval.open()
         }
     }
-    WorkspaceDialog { id: workspaceDialog; parent: Overlay.overlay }
+    WorkspaceDialog {
+        id: workspaceDialog
+        parent: Overlay.overlay
+        canDrawRectangle: mediaStage.canDrawRectangle
+        onRemovePluginRequested: function(pluginId, pluginName) { pluginRemoval.openFor(pluginId, pluginName) }
+        onRectangleRequested: function(plugin) {
+            close()
+            mediaStage.startRectangle(plugin)
+        }
+    }
+
+    Dialog {
+        id: pluginRemoval
+        parent: Overlay.overlay
+        anchors.centerIn: parent
+        width: Math.min(460, parent.width - 40)
+        title: "Remove " + pluginName + "?"
+        modal: true
+        property string pluginId: ""
+        property string pluginName: ""
+        readonly property bool userInstalled: pluginModel.details.find(entry => entry.id === pluginId)?.userInstalled ?? false
+
+        function openFor(id, name) {
+            pluginId = id
+            pluginName = name
+            open()
+        }
+
+        contentItem: Label {
+            text: pluginRemoval.userInstalled
+                  ? "This removes the installed plugin and its rollback copy."
+                  : "This removes the plugin from your Andiya profile."
+            wrapMode: Text.WordWrap
+        }
+        footer: DialogButtonBox {
+            standardButtons: Dialog.Cancel
+            Button {
+                text: "Remove"
+                DialogButtonBox.buttonRole: DialogButtonBox.DestructiveRole
+                onClicked: pluginRemoval.accept()
+            }
+        }
+        onAccepted: {
+            const error = pluginModel.removePlugin(pluginId)
+            const message = error || pluginName + " was removed."
+            if (workspaceDialog.opened)
+                workspaceDialog.message = message
+            else
+                toast.show("Remove plugin", message)
+        }
+    }
+
+    Dialog {
+        id: pluginSettings
+        parent: Overlay.overlay
+        anchors.centerIn: parent
+        width: Math.min(520, parent.width - 40)
+        modal: true
+        standardButtons: Dialog.Close
+        property string pluginId: ""
+        readonly property var plugin: pluginModel.details.find(entry => entry.id === pluginId)
+        title: plugin ? plugin.name + " settings" : "Plugin settings"
+        background: Rectangle { color: Theme.surface; radius: 16; border.color: Theme.borderSoft }
+
+        contentItem: ScrollView {
+            id: settingsScroll
+            implicitHeight: Math.min(parameters.implicitHeight, window.height - 200)
+            contentWidth: availableWidth
+            contentHeight: parameters.implicitHeight
+            clip: true
+
+            PluginParameters {
+                id: parameters
+                width: settingsScroll.availableWidth
+                plugin: pluginSettings.plugin
+                canDrawRectangle: mediaStage.canDrawRectangle
+                onRectangleRequested: function(plugin) {
+                    pluginSettings.close()
+                    mediaStage.startRectangle(plugin)
+                }
+            }
+        }
+    }
     SettingsDialog {
         id: settingsDialog
         parent: Overlay.overlay
@@ -718,7 +806,11 @@ ApplicationWindow {
     Shortcut {
         sequence: "Escape"
         onActivated: {
-            if (settingsDialog.opened) settingsDialog.close()
+            if (pluginRemoval.opened) pluginRemoval.reject()
+            else if (pluginSettings.opened) pluginSettings.close()
+            else if (workspaceDialog.opened) workspaceDialog.close()
+            else if (mediaStage.rectanglePluginId) mediaStage.rectanglePluginId = ""
+            else if (settingsDialog.opened) settingsDialog.close()
             else if (aboutDialog.opened) aboutDialog.close()
                 else if (shortcutsDialog.opened) shortcutsDialog.close()
                 else if (networkStreamDialog.opened) networkStreamDialog.close()

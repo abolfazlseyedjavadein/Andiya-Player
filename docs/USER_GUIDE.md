@@ -52,6 +52,15 @@ Python filters need a separately installed Python interpreter.
 Choose a native package matching your operating system and architecture.
 
 Filters support order, strength, declared parameter sliders and named presets.
+For a plugin with adjustable parameters, choose **Settings** on its **Tools**
+card. Changes are shared with **Workspace → Filters**. With an image or video
+loaded, plugins such as Redaction Blur also offer **Draw rectangle**. Draw or
+adjust the box on the picture, then select **Apply rectangle**.
+
+Choose **Remove** on any plugin card and confirm to remove it from your Andiya
+profile. This also deletes the local files and rollback copy for a plugin you
+installed. Use **Install plugin** to add a removed plugin back.
+
 Use Restart to retry a failed worker. Updates keep one previous version for
 Rollback; changes to plugin content require approval again.
 Plugin permissions describe access but are not an OS sandbox.

@@ -1,6 +1,6 @@
 # Plugin reference
 
-This describes the current Andiya 0.1.6 implementation. Start with the
+This describes the Andiya 0.1.7 implementation. Start with the
 [creation tutorial](../PLUGIN_DEVELOPMENT.md) for complete runnable examples.
 
 ## Manifest
@@ -41,6 +41,32 @@ The UI supplies parameter values, initially using the manifest defaults.
 A standalone worker caller must supply values itself or rely on the plugin's
 own defaults; the worker does not read the manifest's parameter schema.
 Omitting parameters is valid.
+When an available plugin declares parameters, Andiya exposes its **Settings**
+popup from **Tools** and uses the same settings in **Workspace → Filters**.
+The plugin declares the controls in its manifest and consumes their values
+through the worker configuration.
+
+An optional `rectangle` object adds a **Draw rectangle** button to the plugin's
+settings. Its values map the rectangle's four fields to numeric parameter keys.
+
+```json
+"rectangle": {"x": "left", "y": "top", "width": "regionWidth", "height": "regionHeight"}
+```
+
+Declare all four keys in `parameters`. X and Y use a range of 0 to 1. Width
+and height use a maximum of 1 and may declare a positive minimum. Values are
+fractions of the displayed frame, measured from its top-left corner. Andiya
+maps the drawn selection to these fractions and sends the four updated values
+together through the normal parameter configuration. The existing sliders
+remain available in **Workspace → Filters** and **Tools → Settings**.
+See the [Redaction Blur walkthrough](../PLUGIN_DEVELOPMENT.md#a7-add-settings-and-a-drawable-rectangle)
+for the full manifest and Python example. For compatibility, the host supplies
+the known rectangle mapping for Redaction Blur 1.0.0. New plugins declare
+their own mapping.
+
+**Remove** is an Andiya action on every plugin card. It removes the plugin from
+the current profile. For a user-installed plugin it also deletes the installed
+package and rollback copy. Reinstalling a package makes it available again.
 
 An optional `files` object maps every payload path to its SHA-256 digest,
 excluding `plugin.json` and `plugin.json.p7s`. If supplied and nonempty, the

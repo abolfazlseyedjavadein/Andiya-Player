@@ -39,6 +39,7 @@ public:
 
     Q_INVOKABLE void setPluginEnabled(int index, bool enabled);
     Q_INVOKABLE QString installPlugin(const QUrl &directoryUrl);
+    Q_INVOKABLE QString removePlugin(const QString &id);
     Q_INVOKABLE void reload();
     Q_INVOKABLE void approvePlugin(const QString &id,const QString &fingerprint);
     QVariantList details() const;
@@ -46,6 +47,7 @@ public:
     QStringList presetNames() const;
     Q_INVOKABLE void setStrength(int index, double value);
     Q_INVOKABLE void setParameter(int index, const QString &key, double value);
+    Q_INVOKABLE bool setRectangle(const QString &id, double x, double y, double width, double height);
     Q_INVOKABLE void savePreset(const QString &name);
     Q_INVOKABLE void loadPreset(const QString &name);
     Q_INVOKABLE void deletePreset(const QString &name);
@@ -82,12 +84,13 @@ private:
         bool pythonFilter = false;
         QString error;
         QString path;
+        QString installedFolder;
         QVariantMap manifest;
         QVariantMap parameters;
         double strength = 1.0;
     };
 
-    void discoverDirectory(const QString &path);
+    void discoverDirectory(const QString &path, bool userInstalled);
     static bool copyPluginDirectory(const QString &sourcePath,
                                     const QString &destinationPath,
                                     QString *errorMessage);

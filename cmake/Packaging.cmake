@@ -53,6 +53,8 @@ install(FILES LICENSE README.md PLUGIN_DEVELOPMENT.md THIRD_PARTY.md DESTINATION
 install(FILES third_party/signalsmith/LICENSE-stretch.txt third_party/signalsmith/LICENSE-linear.txt
     DESTINATION "${ANDIYA_DATA_DIR}/licenses")
 install(DIRECTORY docs/ DESTINATION "${ANDIYA_DATA_DIR}/docs")
+install(FILES plugins/redaction-blur/plugin.json plugins/redaction-blur/filter.py
+    DESTINATION "${ANDIYA_DATA_DIR}/docs/examples/redaction-blur")
 
 if(ANDIYA_DEPLOY_RUNTIME)
     if(WIN32)

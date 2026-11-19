@@ -37,6 +37,24 @@ QVariantMap PluginValidation::inspect(const QString &directory) {
            !std::isfinite(min)||!std::isfinite(max)||min>=max||def<min||def>max)return fail("Invalid numeric parameter schema.");
         parameterKeys.insert(key);
     }
+    if (obj.contains("rectangle")) {
+        const auto rectangle = obj.value("rectangle").toObject();
+        QSet<QString> fields;
+        for (const auto &edge : {"x", "y", "width", "height"}) {
+            const auto key = rectangle.value(edge).toString();
+            if (!parameterKeys.contains(key) || fields.contains(key))
+                return fail("Rectangle must name four distinct numeric parameters.");
+            for (const auto &value : specs) {
+                const auto spec = value.toObject();
+                if (spec.value("key").toString() != key) continue;
+                const double minimum = spec.value("min").toDouble(0);
+                const bool size = edge == QByteArray("width") || edge == QByteArray("height");
+                if (minimum < 0 || (!size && minimum != 0) || spec.value("max").toDouble(1) != 1)
+                    return fail("Rectangle parameters must use normalized frame coordinates.");
+            }
+            fields.insert(key);
+        }
+    }
     const auto execution=obj.value("execution").toString();
     if(execution!="native" && execution!="python") return fail("Supported execution types: native and python.");
     const auto runtime=obj.value("runtime").toString();
