@@ -111,6 +111,12 @@ The entry module must provide
 `process_frame(width, height, stride, pixel_format, timestamp_us, data)`.
 Input is immutable bytes; return same-length bytes/bytearray or `None`.
 Optional `configure(parameters)` runs at process startup before frames.
+It receives a dictionary keyed by the manifest's parameter names, including
+the four mapped rectangle values when configured. The rectangle arrives as
+normalized numbers through this hook. There is no drawing callback in the
+worker. Use each frame's width, height, and stride to find the affected
+pixels. See the [Python code walkthrough](../PLUGIN_DEVELOPMENT.md#read-plugin-parameters-in-python)
+for configuration, bounds conversion, and a test with known pixels.
 
 The module's directory is added to the import path and used as the working
 directory. Bytecode-cache generation is disabled. The app does not run pip,

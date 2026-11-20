@@ -149,11 +149,90 @@ Use Andiya 0.1.7 or newer for the settings popup and drawing tool. Copy
    from 0 to 1. Width and height have a maximum of 1 and can declare a minimum.
    Redaction Blur uses a minimum of 0.01 for each size. Its `radius` parameter
    controls the blur in pixels and is independent of the drawing tool.
-4. Read those keys in `configure(parameters)`. In `process_frame`, convert
-   the normalized coordinates to the supplied frame's pixel dimensions.
-   The example rounds the top and left down, rounds the bottom and right up,
-   clamps the box to the frame, and blurs only the pixels inside it. Return a
-   same-size BGRA buffer and preserve alpha and pixels outside the box.
+4. Implement `configure(parameters)` and `process_frame` as shown below.
+
+#### Read plugin parameters in Python
+
+Andiya starts the Python worker with a dictionary keyed by the manifest's
+`key` values. A slider edit updates a value in that dictionary. **Apply
+rectangle** updates the four mapped values together. For example, applying a
+rectangle might result in these values on the next worker startup.
+
+```python
+{"x": 0.25, "y": 0.25, "width": 0.5, "height": 0.5, "radius": 16}
+```
+
+Read the dictionary in `configure(parameters)` and keep the parsed values
+for `process_frame`. In [Redaction Blur's filter](plugins/redaction-blur/filter.py),
+`_number` converts each value to a finite number, checks its bounds, and
+provides the same default as the manifest when a key is missing.
+
+```python
+def configure(parameters):
+    global _rectangle, _radius
+    _rectangle = (
+        _number(parameters, "x", 0.1, 0, 1),
+        _number(parameters, "y", 0.1, 0, 1),
+        _number(parameters, "width", 0.3, 0.01, 1),
+        _number(parameters, "height", 0.2, 0.01, 1),
+    )
+    _radius = round(_number(parameters, "radius", 16, 1, 64))
+```
+
+This hook runs before the worker processes frames. Andiya can restart the
+worker after a settings change, so initialize all configuration from the
+dictionary each time. **Strength** is separate from the plugin parameters.
+Andiya applies it when blending the processed frame with the input frame.
+
+#### Convert the rectangle to pixels
+
+Andiya accounts for black bars and sends fractions of the picture measured
+from its top-left corner, with X increasing to the right and Y increasing
+downward. Convert the fractions using the width and height supplied to
+`process_frame` on each call. Preview and export can use different frame sizes.
+This is the conversion used by the example, with `floor` and `ceil` from
+Python's `math` module.
+
+```python
+x, y, region_width, region_height = _rectangle
+left = floor(x * width)
+top = floor(y * height)
+right = min(width, ceil((x + region_width) * width))
+bottom = min(height, ceil((y + region_height) * height))
+if left >= right or top >= bottom:
+    raise ValueError("The redaction rectangle is outside the frame")
+```
+
+The bounds include `left` and `top` and exclude `right` and `bottom`.
+For a 640 × 360 frame, the example settings above cover columns 160–479
+and rows 90–269. Individual sliders can produce a box that extends past the
+picture edge. Clamping the right and bottom keeps the reads inside the frame.
+
+Each BGRA32 pixel occupies four bytes. The byte offset for column `column`
+and row `row` is `row * stride + column * 4`. Redaction Blur starts with a
+copy of the input, runs a horizontal and vertical blur over the rectangle's
+B, G, and R channels, and returns the result as `bytes`. It preserves alpha,
+padding, and pixels outside the box. Raise an error when a required
+rectangle is invalid. Returning `None` requests a successful bypass, which
+can leave the original pixels visible.
+
+#### Check the filter with known pixels
+
+Run this Python snippet from the repository root. It loads the real filter,
+sets a rectangle over the middle two pixels, and checks that their colors
+are averaged while their alpha values and the outer pixels are preserved.
+
+```python
+import runpy
+
+plugin = runpy.run_path("plugins/redaction-blur/filter.py")
+plugin["configure"]({"x": 0.25, "y": 0, "width": 0.5, "height": 1, "radius": 1})
+frame = bytes((2, 4, 6, 10, 10, 20, 30, 20, 90, 100, 110, 30, 3, 5, 7, 40))
+output = plugin["process_frame"](4, 1, 16, 1, 0, frame)
+assert output == bytes((2, 4, 6, 10, 50, 60, 70, 20, 50, 60, 70, 30, 3, 5, 7, 40))
+```
+
+#### Try the plugin in Andiya
 
 To try it, install the folder through **Workspace → Filters → Install
 folder…**, approve it, and enable it. With an image or video loaded, open
