@@ -410,6 +410,56 @@ void PluginListModel::setParameter(int index, const QString &key, double value) 
         saveState(); emit filterStackChanged(); return;
     }
 }
+QVariantMap PluginListModel::actionConfiguration(const QString &id, const QString &actionId,
+                                                 const QString &type) const
+{
+    for (const auto &plugin : m_plugins) {
+        if (plugin.id != id || !plugin.enabled || !plugin.available || !plugin.pythonFilter) continue;
+        const auto actions = plugin.manifest.value("actions").toList();
+        const bool declared = std::any_of(actions.cbegin(), actions.cend(), [&](const auto &entry) {
+            const auto action = entry.toMap();
+            return action.value("id").toString() == actionId && action.value("type").toString() == type;
+        });
+        const bool legacy = actionId.isEmpty() && type == "rectangle"
+            && plugin.manifest.value("rectangleInteraction").toBool();
+        if (declared || legacy)
+            return {{"path", plugin.path}, {"values", plugin.parameters},
+                    {"fingerprint", plugin.manifest.value("fingerprint")}};
+    }
+    return {};
+}
+
+bool PluginListModel::applyActionSettings(const QString &id, const QString &actionId,
+                                         const QVariantMap &expected, const QVariantMap &updates)
+{
+    if (expected.isEmpty() || actionConfiguration(id, actionId, "button") != expected)
+        return false;
+    const auto plugin = std::find_if(m_plugins.begin(), m_plugins.end(), [&id](const auto &entry) {
+        return entry.id == id;
+    });
+    auto parameters = plugin->parameters;
+    const auto specs = plugin->manifest.value("parameters").toList();
+    for (auto update = updates.cbegin(); update != updates.cend(); ++update) {
+        const auto spec = std::find_if(specs.cbegin(), specs.cend(), [&update](const auto &entry) {
+            return entry.toMap().value("key").toString() == update.key();
+        });
+        if (spec == specs.cend()) return false;
+        const auto bounds = spec->toMap();
+        bool numeric = false;
+        const double number = update.value().toDouble(&numeric);
+        if (!numeric || !std::isfinite(number) || number < bounds.value("min", 0).toDouble()
+            || number > bounds.value("max", 1).toDouble())
+            return false;
+        parameters[update.key()] = number;
+    }
+    if (parameters != plugin->parameters) {
+        plugin->parameters = parameters;
+        saveState();
+        emit filterStackChanged();
+    }
+    return true;
+}
+
 bool PluginListModel::setRectangle(const QString &id, double x, double y, double width, double height)
 {
     if (!std::isfinite(x) || !std::isfinite(y) || !std::isfinite(width) || !std::isfinite(height)

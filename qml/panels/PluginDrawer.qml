@@ -231,7 +231,9 @@ GlassPanel {
                 required property bool available
                 required property string loadError
                 property color accentColor: accent
-                readonly property bool hasSettings: available && (pluginModel.details[index]?.parameters?.length ?? 0) > 0
+                readonly property var configuration: pluginModel.details[index]
+                readonly property bool hasSettings: available
+                    && ((configuration?.parameters?.length ?? 0) > 0 || (configuration?.actions?.length ?? 0) > 0)
 
                 width: listView.width
                 height: Math.max(126, cardContent.implicitHeight + 26)

@@ -630,10 +630,46 @@ ApplicationWindow {
         parent: Overlay.overlay
         canDrawRectangle: mediaStage.canDrawRectangle
         onRemovePluginRequested: function(pluginId, pluginName) { pluginRemoval.openFor(pluginId, pluginName) }
+        onPluginActionRequested: function(plugin, action) { window.runPluginAction(plugin, action) }
         onRectangleRequested: function(plugin) {
             close()
             mediaStage.startRectangle(plugin)
         }
+    }
+
+    function runPluginAction(plugin, action) {
+        if (action.type === "rectangle") {
+            if (pluginSettings.opened) pluginSettings.close()
+            if (workspaceDialog.opened) workspaceDialog.close()
+            mediaStage.startRectangle(plugin, action.id)
+            return
+        }
+
+        if (buttonAction.busy) return
+        const configuration = pluginModel.actionConfiguration(plugin.id, action.id, "button")
+        if (!configuration.path) {
+            toast.show("Plugin action unavailable", "Enable the plugin and try again.")
+            return
+        }
+        mediaStage.rectanglePluginId = ""
+        buttonAction.pluginId = plugin.id
+        buttonAction.actionId = action.id
+        buttonAction.configuration = configuration
+        buttonAction.start(configuration.path, configuration.values, action.id, false)
+        buttonAction.request({ type: "click" })
+    }
+
+    PluginActionSession {
+        id: buttonAction
+        property string pluginId: ""
+        property string actionId: ""
+        property var configuration
+
+        onParametersReturned: function(updates) {
+            if (!pluginModel.applyActionSettings(pluginId, actionId, configuration, updates))
+                toast.show("Settings not applied", "The plugin returned invalid values or its settings changed.")
+        }
+        onFailed: toast.show("Plugin action failed", "Check the plugin's Python action handler.")
     }
 
     Dialog {
@@ -705,6 +741,7 @@ ApplicationWindow {
                     pluginSettings.close()
                     mediaStage.startRectangle(plugin)
                 }
+                onActionRequested: function(plugin, action) { window.runPluginAction(plugin, action) }
             }
         }
     }

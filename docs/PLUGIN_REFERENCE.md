@@ -1,6 +1,6 @@
 # Plugin reference
 
-This describes the Andiya 0.1.7 implementation. Start with the
+This describes the Andiya 0.1.8 implementation. Start with the
 [creation tutorial](../PLUGIN_DEVELOPMENT.md) for complete runnable examples.
 
 ## Manifest
@@ -41,7 +41,7 @@ The UI supplies parameter values, initially using the manifest defaults.
 A standalone worker caller must supply values itself or rely on the plugin's
 own defaults; the worker does not read the manifest's parameter schema.
 Omitting parameters is valid.
-When an available plugin declares parameters, Andiya exposes its **Settings**
+When an available plugin declares parameters or actions, Andiya exposes its **Settings**
 popup from **Tools** and uses the same settings in **Workspace → Filters**.
 The plugin declares the controls in its manifest and consumes their values
 through the worker configuration.
@@ -64,13 +64,54 @@ for the full manifest and Python example. For compatibility, the host supplies
 the known rectangle mapping for Redaction Blur 1.0.0. New plugins declare
 their own mapping.
 
+An optional `files` object maps every payload path to its SHA-256 digest,
+excluding `plugin.json` and `plugin.json.p7s`. If supplied and nonempty, the
+hash map must cover all payload files. Use the packager to generate it.
+
 **Remove** is an Andiya action on every plugin card. It removes the plugin from
 the current profile. For a user-installed plugin it also deletes the installed
 package and rollback copy. Reinstalling a package makes it available again.
 
-An optional `files` object maps every payload path to its SHA-256 digest,
-excluding `plugin.json` and `plugin.json.p7s`. If supplied and nonempty, the
-hash map must cover all payload files. Use the packager to generate it.
+## Plugin actions
+
+A Python filter can declare up to 16 actions in its manifest's `actions`
+array. Each action has a unique `id`, a `label` displayed in Settings, and
+a `type` of `button` or `rectangle`. A rectangle action also requires the
+manifest's `rectangle` mapping. Enable the plugin before using its actions.
+
+```json
+"actions": [
+  {"id": "draw_rectangle", "label": "Draw rectangle", "type": "rectangle"},
+  {"id": "reset_rectangle", "label": "Reset rectangle", "type": "button"}
+]
+```
+
+Andiya calls `on_action(action_id, event, parameters)` in a separate Python
+worker. Match `action_id` to the manifest ID to route the event. The
+`parameters` dictionary contains the saved values at the start of the
+action. The worker also calls `configure(parameters)` before handling events.
+
+For a button, `event` is `{"type": "click"}`. Return a dictionary of declared
+parameter keys and numeric values, or an empty dictionary if no setting
+changes. Andiya validates and applies all returned values together. If
+settings changed while the button was running, the result is discarded.
+
+For a rectangle action, Andiya sends the following events while the editor
+is open.
+
+- An `open` event has `type` and `selection`, where `selection` is
+  `[x, y, width, height]` from the saved settings.
+- A `drag` event has the selection at mouse-down, `origin` and `position`
+  as `[x, y]` pairs, and `handleSize` as `[width, height]`. All values
+  are normalized to the picture. The host can coalesce moves, so use the
+  origin and current position to calculate the result independently.
+- Return `[x, y, width, height]` within the picture. Andiya displays that
+  selection. **Apply rectangle** commits it to the mapped settings.
+  **Cancel** discards it. The action worker receives no video frames.
+
+Older manifests can still use the standard rectangle editor or the
+`rectangleInteraction` opt-in with `rectangle_event(event)`. A declared
+rectangle action uses `on_action` and replaces the legacy draw button.
 
 ## Frame and worker lifecycle
 
@@ -113,8 +154,9 @@ Input is immutable bytes; return same-length bytes/bytearray or `None`.
 Optional `configure(parameters)` runs at process startup before frames.
 It receives a dictionary keyed by the manifest's parameter names, including
 the four mapped rectangle values when configured. The rectangle arrives as
-normalized numbers through this hook. There is no drawing callback in the
-worker. Use each frame's width, height, and stride to find the affected
+normalized numbers through this hook. Pointer events go to the separate
+interaction worker when the plugin opts in. Use each frame's width, height,
+and stride to find the affected
 pixels. See the [Python code walkthrough](../PLUGIN_DEVELOPMENT.md#read-plugin-parameters-in-python)
 for configuration, bounds conversion, and a test with known pixels.
 

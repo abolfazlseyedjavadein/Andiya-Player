@@ -81,6 +81,16 @@ def _load_plugin(script_path):
     return module
 
 
+def _interaction_loop(callback, stdin, stdout):
+    while True:
+        line = stdin.readline(4096)
+        if not line:
+            return 0
+        result = callback(json.loads(line))
+        stdout.write(json.dumps(result, allow_nan=False).encode("utf-8") + b"\n")
+        stdout.flush()
+
+
 def main():
     if len(sys.argv) < 2:
         sys.stderr.write("usage: andiya_python_host.py <plugin_script.py>\n")
@@ -95,6 +105,11 @@ def main():
         parameters = json.loads(sys.argv[2]) if len(sys.argv) > 2 else {}
         if hasattr(module, 'configure'):
             module.configure(parameters)
+        if len(sys.argv) > 3 and sys.argv[3] == "--rectangle-editor":
+            return _interaction_loop(module.rectangle_event, stdin, stdout)
+        if len(sys.argv) > 4 and sys.argv[3] == "--plugin-action":
+            action_id = sys.argv[4]
+            return _interaction_loop(lambda event: module.on_action(action_id, event, parameters.copy()), stdin, stdout)
     except Exception as exc:  # noqa: BLE001 - report once and exit
         sys.stderr.write(f"andiya_python_host: failed to load plugin: {exc}\n")
         return 1

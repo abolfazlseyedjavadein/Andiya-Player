@@ -3,7 +3,7 @@
   "name": "Redaction Blur",
   "vendor": "Andiya Example Plugins",
   "description": "Blur a manually positioned rectangle on an image or video frame.",
-  "version": "1.1.0",
+  "version": "1.3.0",
   "andiyaApi": "1.0",
   "execution": "python",
   "runtime": "process",
@@ -16,6 +16,10 @@
   },
   "enabled": false,
   "rectangle": {"x": "x", "y": "y", "width": "width", "height": "height"},
+  "actions": [
+    {"id": "draw_rectangle", "label": "Draw rectangle", "type": "rectangle"},
+    {"id": "reset_rectangle", "label": "Reset rectangle", "type": "button"}
+  ],
   "parameters": [
     {"key": "x", "label": "X", "min": 0, "max": 1, "default": 0.1, "step": 0.01},
     {"key": "y", "label": "Y", "min": 0, "max": 1, "default": 0.1, "step": 0.01},

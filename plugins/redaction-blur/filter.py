@@ -22,6 +22,44 @@ def configure(parameters):
 configure({})
 
 
+def _clamp(value, lower, upper):
+    return min(max(value, lower), upper)
+
+
+def rectangle_event(event):
+    x, y, width, height = event["selection"]
+    minimum_width = 0.01
+    minimum_height = 0.01
+    if event["type"] == "open":
+        x = _clamp(x, 0, 1 - minimum_width)
+        y = _clamp(y, 0, 1 - minimum_height)
+        return [x, y, _clamp(width, minimum_width, 1 - x),
+                _clamp(height, minimum_height, 1 - y)]
+
+    origin_x, origin_y = event["origin"]
+    cursor_x, cursor_y = event["position"]
+    handle_width, handle_height = event["handleSize"]
+    delta_x, delta_y = cursor_x - origin_x, cursor_y - origin_y
+    if x <= origin_x <= x + width and y <= origin_y <= y + height:
+        if origin_x >= x + width - handle_width and origin_y >= y + height - handle_height:
+            return [x, y, _clamp(width + delta_x, minimum_width, 1 - x),
+                    _clamp(height + delta_y, minimum_height, 1 - y)]
+        return [_clamp(x + delta_x, 0, 1 - width), _clamp(y + delta_y, 0, 1 - height), width, height]
+
+    x = min(origin_x, cursor_x, 1 - minimum_width)
+    y = min(origin_y, cursor_y, 1 - minimum_height)
+    return [x, y, max(minimum_width, max(origin_x, cursor_x) - x),
+            max(minimum_height, max(origin_y, cursor_y) - y)]
+
+
+def on_action(action_id, event, parameters):
+    if action_id == "draw_rectangle":
+        return rectangle_event(event)
+    if action_id == "reset_rectangle" and event["type"] == "click":
+        return {"x": 0.1, "y": 0.1, "width": 0.3, "height": 0.2}
+    raise ValueError(f"Unsupported plugin action: {action_id}")
+
+
 def _blur_pass(source, destination, start, lines, length, line_step, pixel_step):
     for line in range(lines):
         offset = start + line * line_step

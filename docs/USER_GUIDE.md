@@ -57,7 +57,7 @@ Filters support order, strength, declared parameter sliders and named presets.
 
 1. Open **Tools**, find the plugin, and turn on its switch to see its effect.
 2. Click **Settings** on the card. Andiya shows this button when an available
-   plugin declares adjustable parameters. You can also open **Workspace →
+   plugin declares adjustable parameters or actions. You can also open **Workspace →
    Filters** and scroll to the same plugin.
 3. Drag a slider and release it to save the value. The number on the right
    shows the setting. For example, **Soft Contrast** has **Contrast** and
@@ -80,6 +80,11 @@ Filters support order, strength, declared parameter sliders and named presets.
    (position) or **Width** and **Height** (size). These values are fractions
    of the picture. For example, **X = 0.10** and **Width = 0.30** cover the
    area from 10% to 40% of the picture's width.
+
+In Redaction Blur 1.3.0, **Reset rectangle** restores the default position
+and size while keeping the current blur radius. Enable the plugin to use
+either action. The yellow outline and dark edge show the draft selection
+while you drag. The blur moves to the new region when you apply it.
 
 Use **Blur radius** to adjust the amount of blur. For a filtered screenshot,
 use **S** in the player or **K → Save filtered**. Check the saved image

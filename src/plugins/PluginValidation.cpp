@@ -56,6 +56,30 @@ QVariantMap PluginValidation::inspect(const QString &directory) {
         }
     }
     const auto execution=obj.value("execution").toString();
+    if (obj.contains("rectangleInteraction")
+        && (!obj.value("rectangleInteraction").isBool()
+            || (obj.value("rectangleInteraction").toBool()
+                && (execution != "python" || !obj.contains("rectangle")))))
+        return fail("Rectangle interaction requires a Python filter with a rectangle mapping.");
+    if (obj.contains("actions")) {
+        const auto actions = obj.value("actions").toArray();
+        if (execution != "python" || !obj.value("actions").isArray() || actions.size() > 16)
+            return fail("Only Python filters can declare up to 16 actions.");
+        QSet<QString> actionIds;
+        static const QRegularExpression actionIdPattern("^[A-Za-z][A-Za-z0-9_]{0,63}$");
+        for (const auto &entry : actions) {
+            const auto action = entry.toObject();
+            const auto actionId = action.value("id").toString();
+            const auto label = action.value("label").toString().trimmed();
+            const auto type = action.value("type").toString();
+            if (!actionIdPattern.match(actionId).hasMatch() || actionIds.contains(actionId)
+                || label.isEmpty() || label.size() > 80
+                || (type != "button" && type != "rectangle")
+                || (type == "rectangle" && !obj.contains("rectangle")))
+                return fail("Invalid action declaration.");
+            actionIds.insert(actionId);
+        }
+    }
     if(execution!="native" && execution!="python") return fail("Supported execution types: native and python.");
     const auto runtime=obj.value("runtime").toString();
     if((execution=="native" && runtime!="c-abi") || (execution=="python" && runtime!="process" && runtime!="python"))

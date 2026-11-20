@@ -48,6 +48,10 @@ public:
     Q_INVOKABLE void setStrength(int index, double value);
     Q_INVOKABLE void setParameter(int index, const QString &key, double value);
     Q_INVOKABLE bool setRectangle(const QString &id, double x, double y, double width, double height);
+    Q_INVOKABLE QVariantMap actionConfiguration(const QString &id, const QString &actionId,
+                                                const QString &type) const;
+    Q_INVOKABLE bool applyActionSettings(const QString &id, const QString &actionId,
+                                        const QVariantMap &expected, const QVariantMap &updates);
     Q_INVOKABLE void savePreset(const QString &name);
     Q_INVOKABLE void loadPreset(const QString &name);
     Q_INVOKABLE void deletePreset(const QString &name);

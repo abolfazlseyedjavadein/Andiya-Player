@@ -8,12 +8,31 @@ ColumnLayout {
     required property var plugin
     required property bool canDrawRectangle
     signal rectangleRequested(var plugin)
+    signal actionRequested(var plugin, var action)
+    readonly property var actions: root.plugin?.actions ?? []
 
     Button {
         text: "Draw rectangle"
         visible: !!root.plugin?.rectangle && root.plugin.available
-        enabled: root.canDrawRectangle
+                 && !root.actions.some(action => action.type === "rectangle")
+        enabled: root.canDrawRectangle && (!root.plugin?.rectangleInteraction || root.plugin.enabled)
         onClicked: root.rectangleRequested(root.plugin)
+    }
+    Repeater {
+        model: root.actions
+        Button {
+            required property var modelData
+            text: modelData.label
+            enabled: root.plugin.available && root.plugin.enabled
+                     && (modelData.type !== "rectangle" || root.canDrawRectangle)
+            onClicked: root.actionRequested(root.plugin, modelData)
+        }
+    }
+    Label {
+        visible: (!!root.plugin?.rectangleInteraction || root.actions.length > 0) && !root.plugin.enabled
+        text: "Enable the plugin to use its actions."
+        wrapMode: Text.WordWrap
+        Layout.fillWidth: true
     }
 
     RowLayout {

@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.24)
 
-project(Andiya VERSION 0.1.7 LANGUAGES CXX)
+project(Andiya VERSION 0.1.8 LANGUAGES CXX)
 
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -12,6 +12,7 @@ if(UNIX AND NOT APPLE)
 endif()
 
 find_package(Qt6 6.8 REQUIRED COMPONENTS
+    Concurrent
     Quick
     QuickControls2
     Multimedia
@@ -72,6 +73,8 @@ qt_add_executable(Andiya WIN32
     src/plugins/FilterPipeline.h
     src/plugins/PluginValidation.cpp
     src/plugins/PluginValidation.h
+    src/plugins/PluginActionSession.cpp
+    src/plugins/PluginActionSession.h
     src/player/FrameStore.cpp
     src/player/FrameStore.h
     src/player/ExportQueue.cpp
@@ -119,11 +122,13 @@ qt_add_qml_module(Andiya
 
 target_include_directories(Andiya PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/src
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/plugins
     ${CMAKE_CURRENT_SOURCE_DIR}/include
     ${CMAKE_CURRENT_SOURCE_DIR}/third_party/signalsmith
 )
 
 target_link_libraries(Andiya PRIVATE
+    Qt6::Concurrent
     Qt6::Quick
     Qt6::Network
     Qt6::QuickControls2

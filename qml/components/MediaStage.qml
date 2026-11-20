@@ -18,6 +18,8 @@ GlassPanel {
     property real contrast: 0
     property string rectanglePluginId: ""
     property url rectangleSource
+    property string rectangleScriptPath: ""
+    property string rectangleActionId: ""
     readonly property rect picture: player.imageMode
         ? Qt.rect(stillImage.x + (stillImage.width - stillImage.paintedWidth) / 2,
                   stillImage.y + (stillImage.height - stillImage.paintedHeight) / 2,
@@ -30,8 +32,15 @@ GlassPanel {
 
     function revealOverlay() { overlay.reveal() }
 
-    function startRectangle(plugin) {
+    function startRectangle(plugin, actionId = "") {
         if (!canDrawRectangle) return
+        const interactive = !!actionId || plugin.rectangleInteraction
+        const configuration = interactive ? pluginModel.actionConfiguration(plugin.id, actionId, "rectangle") : {}
+        const script = configuration.path ?? ""
+        if (interactive && !script) {
+            rectangleApplyFailed()
+            return
+        }
         if (player.compareModeActive) player.exitCompareMode()
         if (player.playing) player.togglePlayback()
         singleClickTimer.stop()
@@ -41,12 +50,25 @@ GlassPanel {
         const heightParameter = plugin.parameters.find(parameter => parameter.key === mapping.height)
         rectangleEditor.start(Qt.rect(values[mapping.x], values[mapping.y],
                                       values[mapping.width], values[mapping.height]),
-                              widthParameter.min ?? 0, heightParameter.min ?? 0)
+                              widthParameter.min ?? 0, heightParameter.min ?? 0, script, values, actionId)
         rectangleSource = player.source
+        rectangleScriptPath = script
+        rectangleActionId = actionId
         rectanglePluginId = plugin.id
     }
 
     onCanDrawRectangleChanged: if (!canDrawRectangle) rectanglePluginId = ""
+    onRectanglePluginIdChanged: if (!rectanglePluginId) rectangleEditor.stop()
+
+    Connections {
+        target: pluginModel
+        function onFilterStackChanged() {
+            if (root.rectanglePluginId && root.rectangleScriptPath
+                    && pluginModel.actionConfiguration(root.rectanglePluginId, root.rectangleActionId, "rectangle").path
+                       !== root.rectangleScriptPath)
+                root.rectanglePluginId = ""
+        }
+    }
 
     Connections {
         target: player
@@ -609,6 +631,10 @@ GlassPanel {
         visible: root.rectanglePluginId.length > 0
         picture: root.picture
         onCanceled: root.rectanglePluginId = ""
+        onWorkerFailed: {
+            root.rectanglePluginId = ""
+            root.rectangleApplyFailed()
+        }
         onAccepted: function(region) {
             const id = root.rectanglePluginId
             root.rectanglePluginId = ""

@@ -35,6 +35,7 @@ Dialog {
     property string message: ""
     required property bool canDrawRectangle
     signal rectangleRequested(var plugin)
+    signal pluginActionRequested(var plugin, var action)
     signal removePluginRequested(string pluginId, string pluginName)
     contentItem: ColumnLayout {
         spacing: 12
@@ -183,6 +184,7 @@ Dialog {
                                     plugin: card.modelData
                                     canDrawRectangle: root.canDrawRectangle
                                     onRectangleRequested: function(plugin) { root.rectangleRequested(plugin) }
+                                    onActionRequested: function(plugin, action) { root.pluginActionRequested(plugin, action) }
                                 }
                             }
                         }

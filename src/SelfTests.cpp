@@ -6,6 +6,7 @@
 #include "plugins/PluginListModel.h"
 #include "plugins/FilterPipeline.h"
 #include "plugins/PluginValidation.h"
+#include "plugins/PluginActionSession.h"
 #include <QCoreApplication>
 #include <QElapsedTimer>
 #include <QThread>
@@ -317,6 +318,73 @@ int runSelfTests(const QString &directory) {
         check(legacyRectangleSaved, "legacy rectangle mapping and parameters persist");
         check(plugins.removePlugin("example.redaction-blur").isEmpty(), "remove legacy plugin fixture");
         pass("legacy redaction rectangle and persistence");
+
+        const QString editorScript = directory + "/rectangle_editor.py";
+        QFile editorFile(editorScript);
+        check(editorFile.open(QIODevice::WriteOnly), "create interactive Python plugin fixture");
+        editorFile.write(
+            "def configure(parameters):\n"
+            "    global size\n"
+            "    size = parameters['size']\n"
+            "def process_frame(*args):\n"
+            "    return args[-1]\n"
+            "def on_action(action_id, event, parameters):\n"
+            "    if action_id == 'reset_rectangle':\n"
+            "        return {'width': parameters['size']}\n"
+            "    if action_id != 'draw_rectangle':\n"
+            "        raise ValueError(action_id)\n"
+            "    if event['type'] == 'open':\n"
+            "        return event['selection']\n"
+            "    return [*event['position'], size, size]\n");
+        editorFile.close();
+        PluginActionSession editorSession;
+        QRectF previewRectangle;
+        bool editorFailed = false;
+        QObject::connect(&editorSession, &PluginActionSession::selectionChanged,
+                         [&previewRectangle](const QRectF &selection) { previewRectangle = selection; });
+        QObject::connect(&editorSession, &PluginActionSession::failed, [&editorFailed] { editorFailed = true; });
+        editorSession.start(editorScript, {{"size", 0.25}}, "draw_rectangle", true);
+        editorSession.request({{"type", "open"}, {"selection", QVariantList{0.1, 0.1, 0.2, 0.2}}});
+        check(waitFor([&] { return editorFailed || !editorSession.busy(); }) && !editorFailed
+              && previewRectangle == QRectF(0.1, 0.1, 0.2, 0.2), "Python receives the initial selection");
+        editorSession.request({{"type", "drag"}, {"position", QVariantList{0.2, 0.3}}});
+        editorSession.request({{"type", "drag"}, {"position", QVariantList{0.4, 0.5}}});
+        check(waitFor([&] { return editorFailed || !editorSession.busy(); }) && !editorFailed
+              && previewRectangle == QRectF(0.4, 0.5, 0.25, 0.25), "Python returns geometry for the latest mouse event");
+        editorSession.stop();
+        pass("out-of-process plugin rectangle interaction and latest mouse position");
+
+        QVariantMap returnedSettings;
+        QObject::connect(&editorSession, &PluginActionSession::parametersReturned,
+                         [&returnedSettings](const QVariantMap &updates) { returnedSettings = updates; });
+        editorSession.start(editorScript, {{"size", 0.25}}, "reset_rectangle", false);
+        editorSession.request({{"type", "click"}});
+        check(waitFor([&] { return editorFailed || !returnedSettings.isEmpty(); }) && !editorFailed
+              && returnedSettings.value("width").toDouble() == 0.25, "button ID dispatch and numeric settings result");
+
+        manifest["id"] = "test.actions";
+        manifest["actions"] = QVariantList{QVariantMap{{"id", "reset_rectangle"}, {"label", "Reset rectangle"},
+                                                      {"type", "button"}}};
+        writeManifest();
+        check(plugins.installPlugin(QUrl::fromLocalFile(folder)).isEmpty(), "install plugin with a button action");
+        check(plugins.actionConfiguration("test.actions", "reset_rectangle", "button").isEmpty(),
+              "disabled plugin cannot start an action");
+        for (const auto &value : plugins.details()) {
+            const auto details = value.toMap();
+            if (details.value("id").toString() == "test.actions")
+                plugins.approvePlugin("test.actions", details.value("fingerprint").toString());
+        }
+        const auto actionConfig = plugins.actionConfiguration("test.actions", "reset_rectangle", "button");
+        check(!actionConfig.isEmpty(), "approved and enabled plugin can start its declared action");
+        check(!plugins.applyActionSettings("test.actions", "reset_rectangle", actionConfig, {{"width", 2.0}}),
+              "button update rejects out-of-range values");
+        check(plugins.applyActionSettings("test.actions", "reset_rectangle", actionConfig, returnedSettings),
+              "apply the button's parameter updates");
+        check(!plugins.applyActionSettings("test.actions", "reset_rectangle", actionConfig, {{"width", 0.5}}),
+              "button update rejects stale configuration");
+        check(plugins.removePlugin("test.actions").isEmpty(), "remove button action fixture");
+        manifest.remove("actions");
+        pass("plugin action dispatch, settings validation and stale result rejection");
 
         // A manually opened source must not inherit automatic playlist advancement.
         const auto secondPath=directory+"/second.avi",manualPath=directory+"/manual.avi";

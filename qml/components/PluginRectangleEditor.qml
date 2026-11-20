@@ -9,14 +9,29 @@ Item {
     property rect selection
     property real minimumWidth: 0.001
     property real minimumHeight: 0.001
+    property bool pluginOwned: false
     signal accepted(rect region)
     signal canceled()
+    signal workerFailed()
+
+    PluginActionSession {
+        id: session
+        onSelectionChanged: function(selection) { root.selection = selection }
+        onFailed: root.workerFailed()
+    }
 
     function clamp(value, minimum, maximum) {
         return Math.min(Math.max(value, minimum), maximum)
     }
 
-    function start(region, minWidth, minHeight) {
+    function start(region, minWidth, minHeight, script, parameters, actionId) {
+        pluginOwned = !!script
+        if (pluginOwned) {
+            selection = Qt.rect(0, 0, 0, 0)
+            session.start(script, parameters, actionId, true)
+            session.request({ type: "open", selection: [region.x, region.y, region.width, region.height] })
+            return
+        }
         minimumWidth = Math.max(0.001, minWidth)
         minimumHeight = Math.max(0.001, minHeight)
         const x = clamp(region.x, 0, 1 - minimumWidth)
@@ -24,6 +39,8 @@ Item {
         selection = Qt.rect(x, y, clamp(region.width, minimumWidth, 1 - x),
                                   clamp(region.height, minimumHeight, 1 - y))
     }
+
+    function stop() { session.stop() }
 
     MouseArea {
         id: drawing
@@ -37,6 +54,7 @@ Item {
         property string operation: ""
         property point origin
         property rect initial
+        property bool dragged: false
         readonly property bool overHandle: handle.contains(mapToItem(handle, mouseX, mouseY))
         readonly property bool overBox: box.contains(mapToItem(box, mouseX, mouseY))
         cursorShape: overHandle ? Qt.SizeFDiagCursor : overBox ? Qt.SizeAllCursor : Qt.CrossCursor
@@ -46,14 +64,35 @@ Item {
         }
 
         onPressed: function(mouse) {
+            if (session.busy) {
+                mouse.accepted = false
+                return
+            }
             origin = normalized(mouse.x, mouse.y)
             initial = root.selection
+            dragged = false
+            if (root.pluginOwned) return
             const hitHandle = handle.contains(mapToItem(handle, mouse.x, mouse.y))
             const hitBox = box.contains(mapToItem(box, mouse.x, mouse.y))
             operation = hitHandle ? "resize" : hitBox ? "move" : "draw"
         }
+        function forwardDrag(mouse) {
+            const point = normalized(mouse.x, mouse.y)
+            session.request({
+                type: "drag",
+                selection: [initial.x, initial.y, initial.width, initial.height],
+                origin: [origin.x, origin.y],
+                position: [point.x, point.y],
+                handleSize: [Math.min(13 / width, initial.width), Math.min(13 / height, initial.height)]
+            })
+        }
         onPositionChanged: function(mouse) {
             if (!pressed) return
+            if (root.pluginOwned) {
+                dragged = true
+                forwardDrag(mouse)
+                return
+            }
             const point = normalized(mouse.x, mouse.y)
             if (operation === "move") {
                 root.selection = Qt.rect(
@@ -72,7 +111,13 @@ Item {
                     Math.max(root.minimumHeight, Math.max(origin.y, point.y) - y))
             }
         }
-        onCanceled: root.selection = initial
+        onReleased: function(mouse) {
+            if (root.pluginOwned && dragged) forwardDrag(mouse)
+        }
+        onCanceled: {
+            if (root.pluginOwned) root.canceled()
+            else root.selection = initial
+        }
 
         Rectangle {
             id: box
@@ -81,9 +126,19 @@ Item {
             y: root.selection.y * drawing.height
             width: root.selection.width * drawing.width
             height: root.selection.height * drawing.height
-            color: "#225CD6FF"
-            border.color: "#5CD6FF"
-            border.width: 2
+            color: "#16FFDE38"
+            border.color: "#171717"
+            border.width: 5
+
+            Rectangle {
+                id: highlight
+                anchors.fill: parent
+                anchors.margins: 2
+                visible: box.width > 4 && box.height > 4
+                color: "transparent"
+                border.color: "#FFDE38"
+                border.width: 3
+            }
 
             Rectangle {
                 id: handle
@@ -91,7 +146,9 @@ Item {
                 anchors.bottom: parent.bottom
                 width: Math.min(13, parent.width)
                 height: Math.min(13, parent.height)
-                color: box.border.color
+                color: highlight.border.color
+                border.color: box.border.color
+                border.width: 2
             }
         }
     }
@@ -113,7 +170,11 @@ Item {
                 wrapMode: Text.WordWrap
             }
             Button { text: "Cancel"; onClicked: root.canceled() }
-            Button { text: "Apply rectangle"; onClicked: root.accepted(root.selection) }
+            Button {
+                text: "Apply rectangle"
+                enabled: !session.busy && !drawing.pressed
+                onClicked: root.accepted(root.selection)
+            }
         }
     }
 }

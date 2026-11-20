@@ -126,7 +126,7 @@ folder again. **Rescan** does not copy your edits.
 
 ### A7. Add settings and a drawable rectangle
 
-Use Andiya 0.1.7 or newer for the settings popup and drawing tool. Copy
+Use Andiya 0.1.8 or newer for the action-based Redaction Blur example. Copy
 `plugin.json` and `filter.py` into a development folder. The files are in
 [plugins/redaction-blur](plugins/redaction-blur/) in the source checkout and
 `docs/examples/redaction-blur` in the installed documentation.
@@ -242,7 +242,40 @@ corner to resize it. **Apply rectangle** saves all four coordinates together.
 Andiya maps the picture area to normalized coordinates, accounting for black
 bars. The worker receives those four values through its usual configuration.
 The plugin supplies the manifest and frame processing. Andiya owns the popup,
-overlay, and settings storage.
+the overlay display, and settings storage.
+
+#### Add buttons and route their events
+
+In Redaction Blur 1.3.0, **Draw rectangle** and **Reset rectangle** use the
+same action API. Add a declaration for each button in `plugin.json`.
+
+```json
+"actions": [
+  {"id": "draw_rectangle", "label": "Draw rectangle", "type": "rectangle"},
+  {"id": "reset_rectangle", "label": "Reset rectangle", "type": "button"}
+]
+```
+
+Andiya shows the labels in Settings and passes the declared ID to
+[`on_action`](plugins/redaction-blur/filter.py). Route that ID in Python.
+For a rectangle action, Andiya uses the returned coordinates for the
+preview. For a regular button, Andiya saves the numeric settings returned
+by the plugin.
+
+```python
+def on_action(action_id, event, parameters):
+    if action_id == "draw_rectangle":
+        return rectangle_event(event)
+    if action_id == "reset_rectangle" and event["type"] == "click":
+        return {"x": 0.1, "y": 0.1, "width": 0.3, "height": 0.2}
+    raise ValueError(f"Unsupported plugin action: {action_id}")
+```
+
+Here `rectangle_event` handles the mouse positions in Python and returns
+the new preview rectangle. Reset changes only the four coordinates, so
+the current blur radius is retained. See the
+[plugin action contract](docs/PLUGIN_REFERENCE.md#plugin-actions) for the
+event fields and return values.
 The [user guide](docs/USER_GUIDE.md#change-plugin-settings) shows how to
 change slider values and use the rectangle's resize handle.
 
