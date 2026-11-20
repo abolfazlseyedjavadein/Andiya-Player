@@ -164,6 +164,8 @@ Andiya maps the picture area to normalized coordinates, accounting for black
 bars. The worker receives those four values through its usual configuration.
 The plugin supplies the manifest and frame processing. Andiya owns the popup,
 overlay, and settings storage.
+The [user guide](docs/USER_GUIDE.md#change-plugin-settings) shows how to
+change slider values and use the rectangle's resize handle.
 
 Keep **Strength** at 100% so the filtered capture uses the full effect.
 Press **K** to compare the result and use **Save filtered**, or press **S** from

@@ -52,10 +52,42 @@ Python filters need a separately installed Python interpreter.
 Choose a native package matching your operating system and architecture.
 
 Filters support order, strength, declared parameter sliders and named presets.
-For a plugin with adjustable parameters, choose **Settings** on its **Tools**
-card. Changes are shared with **Workspace → Filters**. With an image or video
-loaded, plugins such as Redaction Blur also offer **Draw rectangle**. Draw or
-adjust the box on the picture, then select **Apply rectangle**.
+
+### Change plugin settings
+
+1. Open **Tools**, find the plugin, and turn on its switch to see its effect.
+2. Click **Settings** on the card. Andiya shows this button when an available
+   plugin declares adjustable parameters. You can also open **Workspace →
+   Filters** and scroll to the same plugin.
+3. Drag a slider and release it to save the value. The number on the right
+   shows the setting. For example, **Soft Contrast** has **Contrast** and
+   **Warmth** sliders. **Strength** blends the overall effect with the input
+   frame. At 100%, Andiya uses the full filtered result.
+4. Close the popup when finished. Reopen it or check **Workspace → Filters**
+   to see the same saved values. To preview filters while a video plays,
+   enable **Show filters during video playback** in **Workspace → Filters**.
+
+### Draw and resize a rectangle
+
+1. Load an image or video. Open **Tools → Redaction Blur → Settings**, then
+   click **Draw rectangle** above the sliders. Other plugins show this button
+   when they declare a rectangle tool.
+2. Start dragging on the picture outside the existing box to draw a new one.
+   Drag inside the box to move it. Grab the small square in the **lower-right
+   corner** and drag it to resize the box.
+3. Select **Apply rectangle** to save the new position and size, or **Cancel**
+   to discard your edits. Reopen **Settings** to fine-tune **X** and **Y**
+   (position) or **Width** and **Height** (size). These values are fractions
+   of the picture. For example, **X = 0.10** and **Width = 0.30** cover the
+   area from 10% to 40% of the picture's width.
+
+Use **Blur radius** to adjust the amount of blur. For a filtered screenshot,
+use **S** in the player or **K → Save filtered**. Check the saved image
+before sharing. Use an opaque fill when sensitive text must be fully hidden.
+See the [Redaction Blur Word guide](Redaction-Blur-Guide.docx) for the worked
+example.
+
+### Remove or reinstall a plugin
 
 Choose **Remove** on any plugin card and confirm to remove it from your Andiya
 profile. This also deletes the local files and rollback copy for a plugin you
