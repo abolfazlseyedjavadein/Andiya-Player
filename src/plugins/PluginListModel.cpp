@@ -136,12 +136,16 @@ QString PluginListModel::installPlugin(const QUrl &directoryUrl)
         return QStringLiteral("Choose a local plugin folder.");
     }
 
-    const auto validation = PluginValidation::inspect(directoryUrl.toLocalFile());
-    if (!validation.value("valid").toBool()) return validation.value("error").toString();
     const QDir source(directoryUrl.toLocalFile());
     if (!source.exists()) {
         return QStringLiteral("The selected plugin folder does not exist.");
     }
+    if (!source.exists("plugin.json") && source.exists("plugin.json.in")) {
+        return QStringLiteral("This is a plugin source folder. Choose a built plugin folder containing plugin.json and the compiled library.");
+    }
+
+    const auto validation = PluginValidation::inspect(source.absolutePath());
+    if (!validation.value("valid").toBool()) return validation.value("error").toString();
 
     QFile manifest(source.filePath(QStringLiteral("plugin.json")));
     if (!manifest.open(QIODevice::ReadOnly)) {
@@ -266,11 +270,26 @@ QString PluginListModel::removePlugin(const QString &id)
     return {};
 }
 
+QString PluginListModel::restoreBundledPlugin(const QString &id)
+{
+    const auto entry = std::find_if(m_removedBundledPlugins.cbegin(), m_removedBundledPlugins.cend(),
+        [&id](const QVariant &value) { return value.toMap().value("id").toString() == id; });
+    if (entry == m_removedBundledPlugins.cend()) return "No bundled copy of this plugin is available.";
+
+    QSettings settings;
+    auto removed = settings.value("plugins/removed").toStringList();
+    removed.removeAll(id);
+    settings.setValue("plugins/removed", removed);
+    reload();
+    return {};
+}
+
 void PluginListModel::reload()
 {
 
     beginResetModel();
     m_plugins.clear();
+    m_removedBundledPlugins.clear();
 
     discoverDirectory(userPluginDirectory().absolutePath(), true);
     discoverDirectory(QDir(QCoreApplication::applicationDirPath()).filePath(QStringLiteral("plugins")), false);
@@ -345,7 +364,11 @@ void PluginListModel::discoverDirectory(const QString &path, bool userInstalled)
         const auto report=PluginValidation::inspect(directory.absoluteFilePath());
         const auto manifest=report.value("manifest").toMap();
         QString id=manifest.value("id",directory.fileName()).toString();
-        if (removed.contains(id)) continue;
+        if (removed.contains(id)) {
+            if (!userInstalled && report.value("valid").toBool())
+                m_removedBundledPlugins.append(QVariantMap{{"id", id}, {"name", manifest.value("name", id)}});
+            continue;
+        }
         if(std::any_of(m_plugins.begin(),m_plugins.end(),[&](const auto &p){return p.id==id;}))continue;
         PluginEntry p;
         p.id=id;p.name=manifest.value("name",id).toString();p.vendor=manifest.value("vendor","Third party").toString();

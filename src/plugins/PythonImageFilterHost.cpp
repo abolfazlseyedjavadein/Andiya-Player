@@ -50,12 +50,6 @@ PythonImageFilterHost::~PythonImageFilterHost()
 
 QString PythonImageFilterHost::findInterpreter()
 {
-    // "py" (the official Python launcher) is checked first on Windows
-    // because a bare "python"/"python3" often resolves to Microsoft Store's
-    // app-execution-alias stub, which "exists" on PATH but exits with an
-    // error instead of running anything unless Python was installed through
-    // the Store. We verify each candidate actually runs `--version`
-    // successfully rather than trusting PATH resolution alone.
 #if defined(Q_OS_WIN)
     static const QStringList candidates = {
         QStringLiteral("py"), QStringLiteral("python3"), QStringLiteral("python")};
@@ -65,14 +59,22 @@ QString PythonImageFilterHost::findInterpreter()
 #endif
     for (const QString &candidate : candidates) {
         const QString resolved = QStandardPaths::findExecutable(candidate);
-        if (resolved.isEmpty()) {
-            continue;
-        }
+        if (resolved.isEmpty()) continue;
+        QStringList arguments;
+#if defined(Q_OS_WIN)
+        if (candidate == QStringLiteral("py")) arguments << QStringLiteral("-3");
+#endif
+        // Run Python code to distinguish a working Python 3 runtime from a
+        // launcher or a Windows app alias that only answers version requests.
+        arguments << QStringLiteral("-c")
+                  << QStringLiteral("import sys; sys.stdout.buffer.write(sys.executable.encode('utf-8')); "
+                                    "sys.exit(0 if sys.version_info >= (3, 9) else 1)");
         QProcess probe;
-        probe.start(resolved, {QStringLiteral("--version")});
+        probe.start(resolved, arguments);
         if (probe.waitForFinished(2000) && probe.exitStatus() == QProcess::NormalExit &&
             probe.exitCode() == 0) {
-            return resolved;
+            const QString executable = QString::fromUtf8(probe.readAllStandardOutput());
+            if (QFileInfo(executable).isExecutable()) return executable;
         }
     }
     return {};
@@ -98,7 +100,7 @@ bool PythonImageFilterHost::load(const QString &manifestId, const QString &scrip
     if (m_interpreter.isEmpty()) {
         if (errorMessage) {
             *errorMessage = QStringLiteral(
-                "No Python 3 interpreter found on PATH (looked for python3, python, py).");
+                "Python 3.9 or newer is required. Install Python, make it available on PATH, then restart Andiya.");
         }
         return false;
     }
@@ -193,7 +195,7 @@ bool PythonImageFilterHost::ensureStarted(LoadedFilter &filter) const
 #endif
  : m_interpreter);
     process->setArguments(filter.native ? QStringList{filter.id, filter.scriptPath, filter.parameters}
-                                        : QStringList{runnerPath, filter.scriptPath, filter.parameters});
+                                        : QStringList{QStringLiteral("-B"), runnerPath, filter.scriptPath, filter.parameters});
     process->setWorkingDirectory(QFileInfo(filter.scriptPath).absolutePath());
     process->setStandardErrorFile(QProcess::nullDevice());
     process->start();

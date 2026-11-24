@@ -2,6 +2,7 @@
 
 #include "plugins/PluginListModel.h"
 #include "plugins/FilterPipeline.h"
+#include <QElapsedTimer>
 #include "FrameStore.h"
 #include "ExportQueue.h"
 #include "StudioController.h"
@@ -100,7 +101,12 @@ PlayerController::PlayerController(PluginListModel *plugins, QObject *parent)
     m_liveFilters=QSettings().value("filters/live",true).toBool();
     connect(m_plugins,&PluginListModel::filterStackChanged,this,[this]{
         ++m_generation;
+        m_livePreviewEdge = 960;
+        m_livePreviewWarmedUp = false;
+        m_filterPreviewErrors.clear();
+        emit diagnosticsChanged();
         if(!m_plugins->hasEnabledImageFilters())m_previewPipeline->process({},0,{},[](QImage,QStringList){});
+        emit compareModeChanged();
         requestPreview();
     });
     refreshAudioDevice();
@@ -185,12 +191,6 @@ PlayerController::PlayerController(PluginListModel *plugins, QObject *parent)
     if (m_plugins) {
         connect(m_plugins, &PluginListModel::filterStackChanged,
                 this, &PlayerController::refreshImagePreview);
-        // Toggling, reordering, or installing a plugin changes what the
-        // filtered side of Compare Mode should show even though the
-        // underlying frame hasn't changed, so it needs its own refresh
-        // instead of waiting for the next decoded video frame.
-        connect(m_plugins, &PluginListModel::filterStackChanged,
-                this, &PlayerController::refreshCompareFrame);
     }
 }
 
@@ -287,8 +287,6 @@ void PlayerController::openNetworkStream(const QString &urlText)
     openMedia(url);
 }
 bool PlayerController::compareModeActive() const { return m_compareModeActive; }
-QUrl PlayerController::compareOriginalSource() const { return m_compareOriginalSource; }
-QUrl PlayerController::compareFilteredSource() const { return m_compareFilteredSource; }
 bool PlayerController::compareHasFilters() const
 {
     return m_plugins && m_plugins->hasEnabledImageFilters();
@@ -299,6 +297,14 @@ void PlayerController::attachVideoOutput(QObject *videoOutput)
     if(!videoOutput)return;
     m_displaySink=videoOutput->property("videoSink").value<QVideoSink *>();
     if(m_displaySink && m_currentFrame.isValid())presentFrame(m_currentFrame);
+}
+
+void PlayerController::attachCompareOutputs(QObject *original, QObject *filtered)
+{
+    if (!original || !filtered) return;
+    m_compareOriginalSink = original->property("videoSink").value<QVideoSink *>();
+    m_compareFilteredSink = filtered->property("videoSink").value<QVideoSink *>();
+    if (m_compareModeActive) requestPreview();
 }
 
 void PlayerController::openMedia(const QUrl &url)
@@ -317,8 +323,8 @@ void PlayerController::openMediaInternal(const QUrl &url, int playlistIndex)
         m_playlistIndex = playlistIndex;
         emit playlistChanged();
     }
-    ++m_generation;++m_compareRevision;m_stepDirection=0;m_stepFreeze=false;m_currentFrame={};m_previousCandidate={};
-    m_decodedFrames=m_skippedPreviews=0;m_filterError.clear();clearLoop();exitCompareMode();
+    ++m_generation;m_stepDirection=0;m_stepFreeze=false;m_currentFrame={};m_previousCandidate={};
+    m_decodedFrames=m_skippedPreviews=0;m_filterError.clear();m_filterPreviewErrors.clear();clearLoop();exitCompareMode();
     const QString path = url.isLocalFile() ? url.toLocalFile() : url.toString();
     m_source = url;
     m_title = QFileInfo(url.isLocalFile()?path:url.path()).fileName();
@@ -805,13 +811,8 @@ void PlayerController::enterCompareMode()
         m_player->pause();
     }
     m_compareModeActive = true;
-    // Emitted unconditionally (even before the frame grab below) so the
-    // overlay always appears immediately; if the video's first frame is not
-    // decoded yet, updateCompareImages() below is a no-op and the
-    // videoFrameChanged hook in attachVideoOutput() fills it in as soon as
-    // the frame arrives.
     emit compareModeChanged();
-    updateCompareImages();
+    requestPreview();
 }
 
 void PlayerController::exitCompareMode()
@@ -820,43 +821,30 @@ void PlayerController::exitCompareMode()
         return;
     }
     m_compareModeActive = false;
+    m_compareLivePreview = false;
+    presentCompareFrames({}, {});
     emit compareModeChanged();
+    requestPreview();
 }
 
-void PlayerController::updateCompareImages()
+void PlayerController::presentCompareFrames(const QVideoFrame &original, const QVideoFrame &filtered)
 {
-    if(m_compareBusy){m_comparePending=true;return;}
-    const auto frame=m_imageMode?m_originalImage:m_currentFrame.toImage();
-    if(frame.isNull())return;
-    m_compareOriginalImage=frame;m_compareTimestampMs=m_imageMode?0:qMax<qint64>(0,m_currentFrame.startTime()/1000);
-    m_compareOriginalSource=FrameStore::put("original",frame);
-    m_compareFilteredSource=m_compareOriginalSource;
-    const auto generation=m_generation, revision=++m_compareRevision;
-    emit compareModeChanged();
-    m_compareBusy=true;
-    m_capturePipeline->process(frame,m_compareTimestampMs*1000,m_plugins->snapshot(),[this,generation,revision](QImage result,QStringList errors){
-        m_compareBusy=false;
-        const bool pending=m_comparePending;m_comparePending=false;
-        if(generation!=m_generation||revision!=m_compareRevision||!m_compareModeActive){
-            if(m_compareModeActive)updateCompareImages();return;
-        }
-        m_compareFilteredSource=FrameStore::put("comparison",result);m_filterError=errors.join("; ");
-        emit compareModeChanged();emit diagnosticsChanged();
-        if(pending)updateCompareImages();
-    });
+    m_compareOriginalFrame = original;
+    if (m_compareOriginalSink) m_compareOriginalSink->setVideoFrame(original);
+    if (m_compareFilteredSink) m_compareFilteredSink->setVideoFrame(filtered);
 }
 
-void PlayerController::refreshCompareFrame()
+void PlayerController::setCompareLivePreview(bool enabled)
 {
-    if (m_compareModeActive) {
-        updateCompareImages();
-    }
+    m_compareLivePreview = enabled;
+    if (m_compareModeActive && playing() && enabled) requestPreview();
 }
 
 void PlayerController::exportCompareFrame(bool filtered)
 {
-    if(m_compareOriginalImage.isNull())return;
-    runCapture(m_compareOriginalImage,m_compareTimestampMs,filtered);
+    const auto image = m_imageMode ? m_originalImage : m_compareOriginalFrame.toImage();
+    if (image.isNull()) return;
+    runCapture(image, qMax<qint64>(0, m_compareOriginalFrame.startTime() / 1000), filtered);
 }
 
 void PlayerController::clear()
@@ -870,13 +858,7 @@ void PlayerController::clear()
     m_source = QUrl{};
     m_imageSource = QUrl{};
     m_originalImage = {};
-    if (m_compareModeActive) {
-        m_compareModeActive = false;
-        m_compareOriginalImage = {};
-        m_compareOriginalSource = QUrl{};
-        m_compareFilteredSource = QUrl{};
-        emit compareModeChanged();
-    }
+    exitCompareMode();
     clearSubtitles();
     m_title.clear();
     m_mediaKind = QStringLiteral("No media");
@@ -1071,6 +1053,7 @@ void PlayerController::refreshImagePreview()
         m_imageBusy=false;const bool pending=m_imagePending;m_imagePending=false;
         if(generation!=m_generation||revision!=m_previewRevision){refreshImagePreview();return;}
         m_imageSource=FrameStore::put("image",result);m_filterError=errors.join("; ");
+        m_filterPreviewErrors = errors;
         emit mediaChanged();emit diagnosticsChanged();
         if(pending)refreshImagePreview();
     });
@@ -1333,30 +1316,69 @@ void PlayerController::handleDecodedFrame(const QVideoFrame &frame) {
         m_player->setPosition(qMax<qint64>(0,m_currentFrame.startTime()/1000));
         emit positionChanged();updateSubtitleText(position());
     } else m_currentFrame=frame;
-    if(!m_liveFilters||!m_plugins->hasEnabledImageFilters()||!m_displaySink||!m_displaySink->videoFrame().isValid())presentFrame(m_currentFrame);
+    if(!m_compareModeActive && m_liveFilters && m_plugins->hasEnabledImageFilters() && m_displaySink && !m_displaySink->videoFrame().isValid())
+        presentFrame(m_currentFrame);
     requestPreview();
-    if(m_compareModeActive&&!playing())updateCompareImages();
 }
 void PlayerController::presentFrame(const QVideoFrame &frame) {
     if(m_displaySink)m_displaySink->setVideoFrame(frame);
 }
 void PlayerController::requestPreview() {
-    if(m_imageMode||!m_currentFrame.isValid())return;
-    if(!m_liveFilters||!m_plugins->hasEnabledImageFilters()){presentFrame(m_currentFrame);return;}
-    if(m_previewBusy){m_previewPending=true;++m_skippedPreviews;return;}
-    m_previewPending=false;
-    m_previewBusy=true;
-    const auto frame=m_currentFrame;const auto generation=m_generation;
-    auto image=frame.toImage();
-    if(image.width()>960 || image.height()>960)image=image.scaled(960,960,Qt::KeepAspectRatio,Qt::SmoothTransformation);
-    m_previewPipeline->process(image,frame.startTime(),m_plugins->snapshot(),[this,generation,frame](QImage result,QStringList errors){
-        m_previewBusy=false;
-        if(generation!=m_generation){requestPreview();return;}
-        m_filterError=errors.join("; ");
-        QVideoFrame filtered(result);filtered.setStartTime(frame.startTime());filtered.setEndTime(frame.endTime());
-        presentFrame(filtered);emit diagnosticsChanged();
-        if(m_previewPending)requestPreview();
-    });
+    const bool compare = m_compareModeActive;
+    const bool live = playing();
+    if ((!compare && m_imageMode) || (compare && live && !m_compareLivePreview)) return;
+    const auto frame = m_imageMode ? QVideoFrame(m_originalImage) : m_currentFrame;
+    if (!frame.isValid()) return;
+    if (!m_plugins->hasEnabledImageFilters() || (!compare && !m_liveFilters)) {
+        if (compare) presentCompareFrames(frame, {});
+        else presentFrame(frame);
+        return;
+    }
+    if (m_previewBusy) {
+        m_previewPending = true;
+        ++m_skippedPreviews;
+        return;
+    }
+    m_previewPending = false;
+    const auto generation = m_generation;
+    const int edge = live ? m_livePreviewEdge : (compare ? 0 : 960);
+    QElapsedTimer elapsed;
+    elapsed.start();
+    auto image = frame.toImage();
+    if (image.isNull()) return;
+    if (edge && (image.width() > edge || image.height() > edge))
+        image = image.scaled(edge, edge, Qt::KeepAspectRatio, live ? Qt::FastTransformation : Qt::SmoothTransformation);
+    m_previewBusy = true;
+    m_previewPipeline->process(std::move(image), frame.startTime(), m_plugins->snapshot(),
+        [this, generation, frame, compare, live, elapsed](QImage result, QStringList errors) {
+            m_previewBusy = false;
+            if (generation != m_generation || compare != m_compareModeActive) {
+                requestPreview();
+                return;
+            }
+            if (live && playing()) {
+                const qint64 durationUs = frame.endTime() - frame.startTime();
+                const qint64 budgetMs = durationUs > 0 ? std::clamp<qint64>(durationUs / 1000, 16, 50) : 33;
+                // Ignore worker startup and reduce only when the filter is falling behind.
+                if (m_livePreviewWarmedUp && m_previewPending && elapsed.elapsed() > budgetMs)
+                    m_livePreviewEdge = qMax(320, m_livePreviewEdge * 3 / 4);
+                m_livePreviewWarmedUp = true;
+            }
+            m_filterError = errors.join("; ");
+            m_filterPreviewErrors = errors;
+            // Once paused, wait for the full-quality preview of the current frame.
+            const bool showLive = playing() && (!compare || m_compareLivePreview);
+            const bool showPaused = !playing() && !live && (m_imageMode || frame == m_currentFrame);
+            if (!result.isNull() && (showLive || showPaused)) {
+                QVideoFrame filtered(result);
+                filtered.setStartTime(frame.startTime());
+                filtered.setEndTime(frame.endTime());
+                if (compare) presentCompareFrames(frame, filtered);
+                else presentFrame(filtered);
+            }
+            emit diagnosticsChanged();
+            if (m_previewPending) requestPreview();
+        });
 }
 void PlayerController::runCapture(QImage frame,qint64 timestamp,bool filtered) {
     if(m_pendingCaptures>=4){emit notification("Capture queue full","Wait for an export to finish.");return;}

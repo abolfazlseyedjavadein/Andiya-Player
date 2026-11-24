@@ -1,6 +1,7 @@
 import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
+import QtQml.Models
 
 GlassPanel {
     id: root
@@ -10,6 +11,7 @@ GlassPanel {
 
     signal closeRequested()
     signal installRequested()
+    signal restoreRequested(string pluginId, string pluginName)
 
     FilterGraphDialog { id: filterGraphDialog; parent: Overlay.overlay }
 
@@ -234,6 +236,15 @@ GlassPanel {
                 readonly property var configuration: pluginModel.details[index]
                 readonly property bool hasSettings: available
                     && ((configuration?.parameters?.length ?? 0) > 0 || (configuration?.actions?.length ?? 0) > 0)
+                readonly property string filterError: {
+                    if (!available)
+                        return loadError
+                    if (!pluginEnabled)
+                        return ""
+                    const prefix = pluginId + ": "
+                    const issue = player.filterPreviewErrors.find(message => message.startsWith(prefix))
+                    return issue ? issue.slice(prefix.length) : ""
+                }
 
                 width: listView.width
                 height: Math.max(126, cardContent.implicitHeight + 26)
@@ -355,6 +366,15 @@ GlassPanel {
                         lineHeight: 1.22
                     }
 
+                    Text {
+                        Layout.fillWidth: true
+                        visible: text.length > 0
+                        text: card.filterError
+                        color: Theme.text
+                        font.pixelSize: Theme.fontScale * 10
+                        wrapMode: Text.Wrap
+                    }
+
                     RowLayout {
                         Layout.fillWidth: true
 
@@ -369,8 +389,8 @@ GlassPanel {
                         Item { Layout.fillWidth: true }
 
                         Text {
-                            text: card.available ? "LOADED" : (card.online ? "ONLINE" : (card.builtIn ? "PREVIEW" : "UNAVAILABLE"))
-                            color: card.available ? Theme.green : Theme.textMuted
+                            text: card.filterError ? "UNAVAILABLE" : (card.available ? "READY" : (card.online ? "ONLINE" : (card.builtIn ? "PREVIEW" : "UNAVAILABLE")))
+                            color: card.available && !card.filterError ? Theme.green : Theme.textMuted
                             font.pixelSize: Theme.fontScale * 8
                             font.weight: Font.DemiBold
                             font.letterSpacing: 0.7
@@ -406,7 +426,32 @@ GlassPanel {
             buttonSize: 40
             active: true
             accentColor: Theme.violet
-            onClicked: root.installRequested()
+            onClicked: {
+                if (pluginModel.removedBundledPlugins.length)
+                    installMenu.popup()
+                else
+                    root.installRequested()
+            }
+
+            ThemedMenu {
+                id: installMenu
+
+                ThemedMenuItem {
+                    text: "Install from folder…"
+                    onTriggered: root.installRequested()
+                }
+
+                Instantiator {
+                    model: pluginModel.removedBundledPlugins
+                    delegate: ThemedMenuItem {
+                        required property var modelData
+                        text: "Restore " + modelData.name
+                        onTriggered: root.restoreRequested(modelData.id, modelData.name)
+                    }
+                    onObjectAdded: (index, item) => installMenu.insertItem(index + 1, item)
+                    onObjectRemoved: (index, item) => installMenu.removeItem(item)
+                }
+            }
         }
     }
 }

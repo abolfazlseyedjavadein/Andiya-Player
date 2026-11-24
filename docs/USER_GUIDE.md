@@ -6,7 +6,8 @@ works without a paid plugin.
 
 ## Open media and navigate
 
-Use **Open** or **Ctrl+O** for a file, and **Ctrl+U** for a stream.
+Use **Open** or **Ctrl+O** for a file, and **Ctrl+U** for a stream. The stream
+address is visible while entering or reviewing it in the dialog.
 Transport and codec availability comes from the packaged Qt Multimedia/FFmpeg
 build. A URL being accepted does not guarantee that its protocol or codec works.
 
@@ -19,8 +20,10 @@ Seek with the timeline. Comma and period are the default frame-step keys for
 seekable video. Frame stepping uses decoded timestamps and may need time to
 decode backward. **S** (or **Print Screen**) captures the current frame with
 active filters; **Ctrl+Shift+S** or **C** captures the untouched decoded frame.
-**K** opens original vs. filtered comparison; press play there to watch both
-sides update. Settings are available with **Ctrl+,** and Workspace with
+**K** opens original vs. filtered comparison. Press **Play** to watch matching
+frames on both sides. Live comparison adapts the filtered preview resolution
+to processing speed. Paused comparisons and saved captures use decoded
+resolution. Settings are available with **Ctrl+,** and Workspace with
 **Ctrl+Shift+W**.
 Change the theme in **Workspace → Preferences → Appearance → Theme**. It applies
 immediately and persists across launches. The same theme selector is available
@@ -38,8 +41,10 @@ Choose an external output folder with enough space. The export queue is bounded
 to 200 items. Cancellation leaves completed files intact; an active write may
 finish. Media files are not modified.
 
-Filtered video preview uses a bounded 960-pixel resolution; filtered exports
-process full-resolution frames and can take longer. Original/filtered comparison
+Live filtered video previews start with a 960-pixel limit on the longest edge
+and lower the resolution when filters fall behind. Paused video previews use the
+960-pixel limit. Filtered exports process full-resolution frames and can take
+longer. Original/filtered comparison
 lets you inspect the effect. Worker crashes and timeouts can be bypassed during
 preview but fail exports. Some native callback errors currently result in an
 unchanged frame; see [runtime limits](PLUGIN_REFERENCE.md#frame-and-worker-lifecycle).
@@ -48,8 +53,14 @@ unchanged frame; see [runtime limits](PLUGIN_REFERENCE.md#frame-and-worker-lifec
 
 Open **Workspace → Filters** to install a folder or `.andiyaplugin` bundle,
 load a local/HTTPS catalog, review a publisher and enable a filter.
-Python filters need a separately installed Python interpreter.
+Python filters need a separate Python 3.9 or newer installation that Andiya can
+find through the Windows Python launcher or PATH. If a preview worker cannot
+start, its plugin card in **Tools** shows the reason.
 Choose a native package matching your operating system and architecture.
+
+To bring back a bundled filter you removed, open **Tools → Install plugin** and
+choose **Restore** followed by the filter name. Turn it on and review the
+permission prompt when you're ready to use it.
 
 Filters support order, strength, declared parameter sliders and named presets.
 

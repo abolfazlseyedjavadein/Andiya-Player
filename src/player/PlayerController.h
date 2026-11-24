@@ -75,8 +75,6 @@ class PlayerController final : public QObject
     Q_PROPERTY(int videoHeight READ videoHeight NOTIFY videoSizeChanged)
     Q_PROPERTY(QString lastCapturePath READ lastCapturePath NOTIFY lastCapturePathChanged)
     Q_PROPERTY(bool compareModeActive READ compareModeActive NOTIFY compareModeChanged)
-    Q_PROPERTY(QUrl compareOriginalSource READ compareOriginalSource NOTIFY compareModeChanged)
-    Q_PROPERTY(QUrl compareFilteredSource READ compareFilteredSource NOTIFY compareModeChanged)
     Q_PROPERTY(bool compareHasFilters READ compareHasFilters NOTIFY compareModeChanged)
     Q_PROPERTY(bool isLiveStream READ isLiveStream NOTIFY mediaChanged)
 
@@ -124,8 +122,6 @@ public:
     [[nodiscard]] int videoHeight() const;
     [[nodiscard]] QString lastCapturePath() const;
     [[nodiscard]] bool compareModeActive() const;
-    [[nodiscard]] QUrl compareOriginalSource() const;
-    [[nodiscard]] QUrl compareFilteredSource() const;
     [[nodiscard]] bool compareHasFilters() const;
     [[nodiscard]] bool isLiveStream() const;
 
@@ -146,6 +142,7 @@ public:
     Q_INVOKABLE void cancelBatch();
 
     Q_INVOKABLE void attachVideoOutput(QObject *videoOutput);
+    Q_INVOKABLE void attachCompareOutputs(QObject *original, QObject *filtered);
     Q_INVOKABLE void openMedia(const QUrl &url);
     // Opens a network URL typed by the user (RTSP/RTSPS/RTMP/HTTP(S)/etc.),
     // via the FFmpeg-based Qt Multimedia backend that ships with Andiya --
@@ -170,10 +167,7 @@ public:
     Q_INVOKABLE void enterCompareMode();
     Q_INVOKABLE void exitCompareMode();
     Q_INVOKABLE void exportCompareFrame(bool filtered);
-    // Lets the UI (e.g. a "live preview" timer while playing) force a
-    // refresh of both compare images on demand, bypassing the normal
-    // paused-only guard used by the automatic videoFrameChanged hook.
-    Q_INVOKABLE void refreshCompareFrame();
+    Q_INVOKABLE void setCompareLivePreview(bool enabled);
     Q_INVOKABLE void setCaptureDirectory(const QUrl &directoryUrl);
     Q_INVOKABLE void resetCaptureDirectory();
     Q_INVOKABLE void openSubtitle(const QUrl &url);
@@ -225,12 +219,15 @@ signals:
 private:
     void handleDecodedFrame(const QVideoFrame &frame);
     void presentFrame(const QVideoFrame &frame);
+    void presentCompareFrames(const QVideoFrame &original, const QVideoFrame &filtered);
     void requestPreview();
     void runCapture(QImage frame, qint64 timestampMs, bool filtered);
 
     Q_PROPERTY(QVariantMap diagnostics READ diagnostics NOTIFY diagnosticsChanged)
+    Q_PROPERTY(QStringList filterPreviewErrors READ filterPreviewErrors NOTIFY diagnosticsChanged)
 public:
     QVariantMap diagnostics() const;
+    QStringList filterPreviewErrors() const { return m_filterPreviewErrors; }
     Q_INVOKABLE void editBookmark(int index,const QString &label);
     Q_INVOKABLE QVariantMap workspaceData() const;
     bool restoreWorkspace(const QVariantMap &data,QString *error);
@@ -242,20 +239,22 @@ private:
     ExportQueue *m_exports=nullptr;
     quint64 m_decodedFrames=0,m_skippedPreviews=0;
     QString m_filterError;
+    QStringList m_filterPreviewErrors;
 
     QPointer<QVideoSink> m_displaySink;
     QVideoFrame m_currentFrame;
     QVideoFrame m_previousCandidate;
     bool m_previewBusy = false;
     bool m_previewPending = false;
-    bool m_compareBusy=false,m_comparePending=false,m_imageBusy=false,m_imagePending=false;
+    int m_livePreviewEdge = 960;
+    bool m_livePreviewWarmedUp = false;
+    bool m_imageBusy=false,m_imagePending=false;
     bool m_liveFilters = true;
     quint64 m_generation = 0;
     int m_pendingCaptures = 0;
     int m_stepDirection = 0;
     qint64 m_stepOriginUs = -1;
     bool m_stepFreeze = false;
-    qint64 m_compareTimestampMs = 0;
     QVariantList m_bookmarks;
     qint64 m_loopStart = -1;
     qint64 m_loopEnd = -1;
@@ -273,7 +272,6 @@ private:
     void openMediaInternal(const QUrl &url, int playlistIndex);
     void refreshImagePreview();
     void captureFrameInternal(bool applyFilters);
-    void updateCompareImages();
     void updateSubtitleText(qint64 positionMs);
     void autoLoadSubtitle(const QString &mediaPath);
     void updateTracks();
@@ -332,11 +330,11 @@ private:
     int m_savedWindowHeight = 900;
     bool m_savedWindowMaximized = false;
     quint64 m_previewRevision = 0;
-    quint64 m_compareRevision = 0;
-    QImage m_compareOriginalImage;
-    QUrl m_compareOriginalSource;
-    QUrl m_compareFilteredSource;
+    QPointer<QVideoSink> m_compareOriginalSink;
+    QPointer<QVideoSink> m_compareFilteredSink;
+    QVideoFrame m_compareOriginalFrame;
     bool m_compareModeActive = false;
+    bool m_compareLivePreview = false;
     qreal m_volume = 0.78;
     bool m_muted = false;
     bool m_audioErrorReported = false;

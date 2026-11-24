@@ -14,6 +14,7 @@ class PluginListModel final : public QAbstractListModel
 {
     Q_OBJECT
     Q_PROPERTY(QVariantList details READ details NOTIFY filterStackChanged)
+    Q_PROPERTY(QVariantList removedBundledPlugins READ removedBundledPlugins NOTIFY filterStackChanged)
     Q_PROPERTY(QStringList presetNames READ presetNames NOTIFY presetsChanged)
 
 public:
@@ -40,9 +41,11 @@ public:
     Q_INVOKABLE void setPluginEnabled(int index, bool enabled);
     Q_INVOKABLE QString installPlugin(const QUrl &directoryUrl);
     Q_INVOKABLE QString removePlugin(const QString &id);
+    Q_INVOKABLE QString restoreBundledPlugin(const QString &id);
     Q_INVOKABLE void reload();
     Q_INVOKABLE void approvePlugin(const QString &id,const QString &fingerprint);
     QVariantList details() const;
+    QVariantList removedBundledPlugins() const { return m_removedBundledPlugins; }
     QVariantList snapshot() const;
     QStringList presetNames() const;
     Q_INVOKABLE void setStrength(int index, double value);
@@ -100,5 +103,6 @@ private:
                                     QString *errorMessage);
 
     QVector<PluginEntry> m_plugins;
+    QVariantList m_removedBundledPlugins;
 
 };

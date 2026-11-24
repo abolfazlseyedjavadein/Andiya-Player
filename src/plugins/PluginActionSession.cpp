@@ -47,7 +47,7 @@ void PluginActionSession::start(const QString &script, const QVariantMap &parame
         });
         const QString runner = QCoreApplication::applicationDirPath() + "/python_runtime/andiya_python_host.py";
         const auto json = QJsonDocument::fromVariant(parameters).toJson(QJsonDocument::Compact);
-        QStringList arguments{runner, script, QString::fromUtf8(json)};
+        QStringList arguments{QStringLiteral("-B"), runner, script, QString::fromUtf8(json)};
         if (actionId.isEmpty()) arguments << "--rectangle-editor";
         else arguments << "--plugin-action" << actionId;
         process->start(executable, arguments);

@@ -464,6 +464,11 @@ ApplicationWindow {
                 opacity: visible ? 1 : 0
                 onCloseRequested: window.pluginsOpen = false
                 onInstallRequested: pluginFolderDialog.open()
+                onRestoreRequested: function(pluginId, pluginName) {
+                    const error = pluginModel.restoreBundledPlugin(pluginId)
+                    toast.show(error ? "Plugin restoration failed" : "Plugin restored",
+                               error || pluginName + " is available in Tools.")
+                }
                 onSettingsRequested: function(pluginId) {
                     pluginSettings.pluginId = pluginId
                     pluginSettings.open()
@@ -790,7 +795,7 @@ ApplicationWindow {
 
     FolderDialog {
         id: pluginFolderDialog
-        title: "Choose an Andiya plugin folder"
+        title: "Choose a plugin folder containing plugin.json"
         onAccepted: {
             const error = pluginModel.installPlugin(selectedFolder)
             error.length > 0 ? toast.show("Plugin installation failed", error)

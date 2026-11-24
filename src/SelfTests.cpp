@@ -287,6 +287,13 @@ int runSelfTests(const QString &directory) {
         plugins.reload();
         check(!hasPlugin(bundledId), "bundled plugin stays removed after rescan");
         check(PluginValidation::inspect(nativeDir).value("valid").toBool(), "shared package files remain available");
+        const auto restorable = plugins.removedBundledPlugins();
+        check(restorable.size()==1 && restorable.first().toMap().value("id").toString()==bundledId,
+              "removed Soft Contrast is offered for restoration");
+        check(plugins.restoreBundledPlugin(bundledId).isEmpty(), "restore Soft Contrast from shared files");
+        check(hasPlugin(bundledId) && plugins.removedBundledPlugins().isEmpty(), "restored plugin reappears");
+        check(!plugins.hasEnabledImageFilters(), "restoring a plugin leaves it disabled");
+        check(plugins.removePlugin(bundledId).isEmpty(), "remove restored plugin");
         check(plugins.installPlugin(QUrl::fromLocalFile(nativeDir)).isEmpty(), "reinstall bundled plugin");
         check(hasPlugin(bundledId), "reinstalled bundled plugin reappears");
         check(plugins.removePlugin(bundledId).isEmpty(), "remove user copy of bundled plugin");
@@ -412,6 +419,7 @@ int runSelfTests(const QString &directory) {
                 plugins.approvePlugin(detail.value("id").toString(),detail.value("fingerprint").toString());
         }
         {
+            int presentedFrames = 0;
             PlayerController previewPlayer(&plugins);QVideoSink displaySink;QObject displayOutput;
             displayOutput.setProperty("videoSink",QVariant::fromValue(&displaySink));previewPlayer.attachVideoOutput(&displayOutput);
             // Inject two decoded frames while paused; the second arrives during slow processing.
@@ -419,15 +427,44 @@ int runSelfTests(const QString &directory) {
             QVideoFrame oldFrame(image);oldFrame.setStartTime(100000);
             QImage latest=image;latest.fill(qRgb(200,10,50));
             QVideoFrame latestFrame(latest);latestFrame.setStartTime(200000);
-            decoderSink->setVideoFrame(oldFrame);decoderSink->setVideoFrame(latestFrame);
+            decoderSink->setVideoFrame(oldFrame);
+            QObject::connect(&displaySink, &QVideoSink::videoFrameChanged, [&] { ++presentedFrames; });
+            decoderSink->setVideoFrame(latestFrame);
             check(waitFor([&]{return displaySink.videoFrame().startTime()==200000;}),
                   qPrintable(QString("paused preview reaches newest timestamp (actual %1, filters %2)")
                              .arg(displaySink.videoFrame().startTime()).arg(previewPlayer.diagnostics().value("Filters").toString())));
             check(displaySink.videoFrame().toImage().convertToFormat(latest.format())==latest,
                   "paused preview contains newest pixels after slow filter");
+            check(presentedFrames==1,"stale filtered frame is not shown after pausing");
             check(previewPlayer.diagnostics().value("Filters").toString()=="Healthy","slow preview filter ran successfully");
+
+            QVideoSink originalSink, filteredSink;
+            QObject originalOutput, filteredOutput;
+            originalOutput.setProperty("videoSink", QVariant::fromValue(&originalSink));
+            filteredOutput.setProperty("videoSink", QVariant::fromValue(&filteredSink));
+            previewPlayer.attachCompareOutputs(&originalOutput, &filteredOutput);
+            const QString comparePath = directory + "/compare-playback.avi";
+            check(QFile::copy(video.toLocalFile(), comparePath), "create comparison playback fixture");
+            previewPlayer.openMedia(QUrl::fromLocalFile(comparePath));
+            check(waitFor([&]{return previewPlayer.position() > 300 && previewPlayer.playing();}),
+                  "comparison playback fixture advances");
+            previewPlayer.enterCompareMode();
+            check(waitFor([&]{return filteredSink.videoFrame().isValid();}), "paused comparison is displayed");
+            const auto pausedTime = originalSink.videoFrame().startTime();
+            int matchingPairs = 0;
+            QObject::connect(&filteredSink, &QVideoSink::videoFrameChanged, [&](const QVideoFrame &frame) {
+                if (frame.startTime() > pausedTime && frame.startTime() == originalSink.videoFrame().startTime())
+                    ++matchingPairs;
+            });
+            previewPlayer.setCompareLivePreview(true);
+            previewPlayer.togglePlayback();
+            check(waitFor([&]{return matchingPairs >= 3;}),
+                  "live comparison shows matching original and filtered timestamps");
+            previewPlayer.exitCompareMode();
+            check(!originalSink.videoFrame().isValid() && !filteredSink.videoFrame().isValid(),
+                  "closing comparison releases both displayed frames");
         }
-        pass("slow filtered preview catches up to the latest paused frame");
+        pass("slow filtered preview catches up after pausing and keeps live comparison frames synchronized");
         for(int i=0;i<plugins.rowCount();++i)plugins.setPluginEnabled(i,false);
         QFile hanging(directory+"/hang.py");hanging.open(QIODevice::WriteOnly);hanging.write("import time\ndef process_frame(*args):\n    time.sleep(30)\n");hanging.close();
         QVariantMap hangFilter{{"id","test.hang"},{"path",hanging.fileName()},{"native",false},{"strength",1.0}};

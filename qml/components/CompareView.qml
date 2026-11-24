@@ -1,14 +1,14 @@
 import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
+import QtMultimedia
 
 // Pro-frame capture & compare: a modal-like split view over the media stage
 // showing the untouched decoded frame beside the same frame with every
 // enabled plugin filter applied. Frame-accurate stepping (player.stepFrame)
 // keeps both sides in sync so the user can pick the exact frame, then export
-// either version as a lossless PNG. A "Live preview" toggle lets playback
-// continue while both sides keep refreshing at a throttled rate, so the
-// filtered pipeline can be watched in motion, not just frame-by-frame.
+// either version as a lossless PNG. Live preview presents matching frames
+// from the playback filter pipeline.
 Item {
     id: root
 
@@ -17,7 +17,8 @@ Item {
     property bool livePreview: false
 
     onVisibleChanged: if (!visible) livePreview = false
-    onLivePreviewChanged: if (livePreview && player.playing) player.refreshCompareFrame()
+    onLivePreviewChanged: player.setCompareLivePreview(livePreview)
+    Component.onCompleted: player.attachCompareOutputs(originalOutput, filteredOutput)
 
     MouseArea {
         anchors.fill: parent
@@ -31,16 +32,6 @@ Item {
             if (root.visible && player.playing)
                 root.livePreview = true
         }
-    }
-
-    // While playing with Live preview on, re-grab and re-filter both frames
-    // on a throttled interval instead of every decoded frame -- keeps the
-    // out-of-process Python filter chain from being hammered every ~16ms.
-    Timer {
-        interval: 350
-        repeat: true
-        running: root.visible && root.livePreview && player.playing
-        onTriggered: player.refreshCompareFrame()
     }
 
     Rectangle {
@@ -119,13 +110,11 @@ Item {
                     border.color: "#22FFFFFF"
                     clip: true
 
-                    Image {
+                    VideoOutput {
+                        id: originalOutput
                         anchors.fill: parent
                         anchors.margins: 8
-                        source: root.visible ? player.compareOriginalSource : ""
-                        fillMode: Image.PreserveAspectFit
-                        asynchronous: true
-                        cache: false
+                        fillMode: VideoOutput.PreserveAspectFit
                     }
                 }
             }
@@ -175,14 +164,12 @@ Item {
                     border.color: "#22FFFFFF"
                     clip: true
 
-                    Image {
+                    VideoOutput {
+                        id: filteredOutput
                         anchors.fill: parent
                         anchors.margins: 8
                         visible: player.compareHasFilters
-                        source: root.visible ? player.compareFilteredSource : ""
-                        fillMode: Image.PreserveAspectFit
-                        asynchronous: true
-                        cache: false
+                        fillMode: VideoOutput.PreserveAspectFit
                     }
 
                     ColumnLayout {

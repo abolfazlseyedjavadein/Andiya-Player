@@ -97,7 +97,7 @@ Popup {
                     color: Theme.text
                     font.pixelSize: Theme.fontScale * 13
                     selectByMouse: true
-                    echoMode: TextInput.PasswordEchoOnEdit
+                    inputMethodHints: Qt.ImhNoPredictiveText | Qt.ImhNoAutoUppercase
                     background: Item {}
                     onAccepted: openButton.clicked()
                 }

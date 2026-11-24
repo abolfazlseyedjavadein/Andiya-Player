@@ -217,7 +217,7 @@ Dialog {
                     Layout.fillWidth: true
                     Label { text: "Named stream profiles"; font.bold: true; font.pixelSize: 20 * studio.textScale }
                     TextField { id: profileName; placeholderText: "Profile name"; Layout.fillWidth: true }
-                    TextField { id: profileAddress; placeholderText: "Complete stream URL, including credentials if required"; echoMode: TextInput.PasswordEchoOnEdit; Layout.fillWidth: true }
+                    TextField { id: profileAddress; placeholderText: "Complete stream URL, including credentials if required"; inputMethodHints: Qt.ImhNoPredictiveText | Qt.ImhNoAutoUppercase; Layout.fillWidth: true }
                     RowLayout {
                         Button { text: "Save securely"; enabled: studio.secureProfilesAvailable; onClicked: { studio.saveProfile(profileName.text,profileAddress.text); profileAddress.clear() } }
                         Button { text: "Reconnect current stream"; onClicked: player.reconnectStream() }

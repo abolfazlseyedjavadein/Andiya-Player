@@ -18,7 +18,7 @@ or [LinkedIn](https://www.linkedin.com/in/abolfazl-javadein/) to learn more.
   and A–B looping for seekable video.
 - Original/filtered comparison, full-resolution PNG captures, interval exports,
   bookmark exports, image batches, cancellation and timestamped contact sheets.
-- Asynchronous video filter previews, with a bounded 960-pixel preview resolution.
+- Asynchronous video filter previews that adapt to processing speed during playback.
   Export processing retains full decoded resolution.
 - Native C-ABI and Python filter workers running outside the player process.
   Failed workers are bypassed during preview and reported in diagnostics.
